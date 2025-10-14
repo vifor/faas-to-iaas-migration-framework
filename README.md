@@ -1,0 +1,1 @@
+A methodological framework for the analysis and automated migration of FaaS applications to IaaS based on a 'Design First' approach. A Master's Thesis project at the National University of La Plata (UNLP).
