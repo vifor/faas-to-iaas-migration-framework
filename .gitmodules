@@ -1,0 +1,3 @@
+[submodule "src/faas-app"]
+	path = src/faas-app
+	url = https://github.com/vifor/avp-petstore-sample-v2.git
