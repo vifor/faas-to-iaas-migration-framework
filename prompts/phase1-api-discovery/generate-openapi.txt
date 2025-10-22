@@ -1,0 +1,1 @@
+please generate an a OpenApi specification for the code contained in [YOUR_PROJECT]
