@@ -2,8 +2,8 @@ graph TD
     A[Inicio: Análisis FaaS] --> B(Paso 1: Analizar Backend vía Prompt -> openapi.yaml);
     B --> C(Paso 2: Analizar Capa de Datos vía Prompt/IaC -> data-base-definition.txt);
     C --> D{¿Migración en 2 etapas viable?};
-    D -- Sí <br> (Pocas BDs, Baja Duplicación) --> E[Etapa 1: Migrar Backend (NestJS Hexagonal) <br> manteniendo BD FaaS];
-    D -- No <br> (Muchas BDs, Alta Duplicación) --> F[Rediseñar y Migrar BD + Backend <br> (Enfoque Monolítico/Fase Única)];
-    E --> G[Etapa 2 (Opcional): Migrar BD];
+    D -- "Sí <br> (Pocas BDs, Baja Duplicación)" --> E["Etapa 1: Migrar Backend (NestJS Hexagonal) <br> manteniendo BD FaaS"];
+    D -- "No <br> (Muchas BDs, Alta Duplicación)" --> F["Rediseñar y Migrar BD + Backend <br> (Enfoque Monolítico/Fase Única)"];
+    E --> G["Etapa 2 (Opcional): Migrar BD"];
     F --> H[Fin: Monolito IaaS Completo];
     G --> H;
