@@ -1,1 +1,7 @@
-please generate an a OpenApi specification for the code contained in [YOUR_PROJECT]
+Analyze the FaaS application code within the 'faas-app' directory. Identify all API endpoints, their HTTP methods, path parameters, and expected request/response structures based on the Lambda function handlers (like Express.js routes). Generate a comprehensive OpenAPI 3.0 specification in YAML format. Ensure the specification includes:
+1. Clear summaries and descriptions for each path and operation.
+2. Definitions for path parameters (e.g., {id}).
+3. Basic security scheme definitions (mentioning ApiKeyAuth and BearerAuth based on path prefixes like /admin).
+4. Placeholder schema definitions for main data objects  even if details cannot be fully inferred.
+5. Use standard HTTP status codes for responses (200, 201, 400, 403, 404, 500).
+Output the result as openapi.yaml. Before generating, verify if an OpenAPI file already exists in the target directory.
