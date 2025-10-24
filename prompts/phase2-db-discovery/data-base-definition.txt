@@ -1,0 +1,220 @@
+# PetStore FaaS Application Database Schema Documentation
+
+## Overview
+This document provides a comprehensive analysis of the DynamoDB tables used in the PetStore FaaS application. The analysis is based on Infrastructure as Code (IaC) configuration files and code examination of Lambda functions that interact with these tables.
+
+## Database Tables
+
+### 1. petstoreFranchise Table
+
+**Source Configuration:** `faas-app/amplify/backend/storage/petstoreFranchise/cli-inputs.json`
+
+**Table Details:**
+- **Table Name:** `petstoreFranchise` (with environment suffix: `petstoreFranchise-{ENV}`)
+- **Resource Name:** `petstoreFranchise`
+
+**Primary Key Structure:**
+- **Partition Key:** `id` (String/S)
+- **Sort Key:** None (simple primary key structure)
+
+**Global Secondary Indexes (GSIs):**
+- None defined
+
+**Key Attributes (inferred from code analysis):**
+Based on the Lambda function `petstoreAdminFranchiseCrud` and authorization code analysis:
+
+1. **id** (String) - Primary key
+   - Usage: Partition key for all operations
+   - Example values: "franchise-001", "franchise-002", etc.
+
+2. **name** (String) - Franchise business name
+   - Usage: Displayed in UI, used for identification
+   - Inferred from authorization code transformations
+
+3. **stores** (List/Array) - Associated store IDs
+   - Usage: Contains array of store objects with `id` field
+   - Structure: Array of objects with `{id: "store-id"}` format
+   - Used in authorization entity transformations
+
+4. **franchise** (Object) - Nested franchise information (when referenced from stores)
+   - Usage: Used in store-to-franchise relationships
+   - Structure: Object with `{id: "franchise-id"}` format
+
+**Operations Supported:**
+- Query by partition key (id)
+- GetItem by id
+- PutItem (create/update)
+- DeleteItem by id
+
+**Access Patterns:**
+- List franchises by ID (Query operation)
+- Get specific franchise (GetItem operation)
+- Create/Update franchise (PutItem operation)
+- Delete franchise (DeleteItem operation)
+
+---
+
+### 2. petstoreTenants Table
+
+**Source Configuration:** `faas-app/amplify/backend/storage/petstoreTenants/cli-inputs.json`
+
+**Table Details:**
+- **Table Name:** `petstoreTenants` (with environment suffix: `petstoreTenants-{ENV}`)
+- **Resource Name:** `petstoreTenants`
+
+**Primary Key Structure:**
+- **Partition Key:** `id` (String/S)
+- **Sort Key:** `value` (String/S)
+- **Composite Key:** (id, value) - allows multiple records per store ID
+
+**Global Secondary Indexes (GSIs):**
+- None defined
+
+**Key Attributes (inferred from code analysis):**
+Based on the Lambda function `petstoreAdminStoreCrud` and authorization code analysis:
+
+1. **id** (String) - Partition key
+   - Usage: Store identifier
+   - Example values: "store-001", "store-002", etc.
+
+2. **value** (String) - Sort key
+   - Usage: Store type/category identifier
+   - Example values: "main", "branch", "outlet", etc.
+   - Allows multiple store entries per store ID
+
+3. **name** (String) - Store display name
+   - Usage: Human-readable store name
+   - Inferred from common retail application patterns
+
+4. **address** (String) - Store physical address
+   - Usage: Location information for stores
+   - Inferred from typical store management requirements
+
+5. **franchise** (Object) - Parent franchise reference
+   - Usage: Links store to its parent franchise
+   - Structure: Object with `{id: "franchise-id"}` format
+   - Used in authorization entity hierarchy
+
+**Operations Supported:**
+- Query by partition key (id)
+- GetItem by composite key (id, value)
+- PutItem (create/update)
+- DeleteItem by composite key (id, value)
+
+**Access Patterns:**
+- List stores by ID (Query operation using partition key)
+- Get specific store (GetItem operation using id + value)
+- Create/Update store (PutItem operation)
+- Delete store (DeleteItem operation using id + value)
+
+---
+
+## Data Relationships
+
+### Franchise-Store Relationship
+- **Type:** One-to-Many
+- **Implementation:** 
+  - Franchises contain a `stores` array with store references
+  - Stores contain a `franchise` object with franchise reference
+- **Usage in Authorization:**
+  - Used to build entity hierarchies for AWS Verified Permissions
+  - Enables franchise-level and store-level access control
+
+### Entity Transformations for Authorization
+The authorization system transforms DynamoDB records into Cedar policy entities:
+
+1. **Franchise Entity:**
+   ```javascript
+   {
+     identifier: {
+       entityType: "MyApplication::StoreFranchise",
+       entityId: body.id
+     },
+     attributes: {
+       stores: {
+         set: [
+           {
+             entityIdentifier: {
+               entityType: "MyApplication::Store", 
+               entityId: storeId.id
+             }
+           }
+         ]
+       }
+     }
+   }
+   ```
+
+2. **Store Entity:**
+   ```javascript
+   {
+     identifier: {
+       entityType: "MyApplication::Store",
+       entityId: body.id
+     },
+     parents: [
+       {
+         entityType: "MyApplication::StoreFranchise",
+         entityId: body.franchise.id
+       }
+     ]
+   }
+   ```
+
+## Environment Configuration
+
+**Table Naming Convention:**
+- Development/Production environments use suffix: `{tableName}-{ENV}`
+- Environment variable `ENV` determines the suffix
+- If `ENV` is "NONE" or undefined, no suffix is applied
+
+**Region Configuration:**
+- Tables are deployed in region specified by `TABLE_REGION` environment variable
+- DynamoDB client connects to this region for all operations
+
+## Code Integration Points
+
+### Lambda Functions Using These Tables:
+
+1. **petstoreAdminFranchiseCrud** → `petstoreFranchise` table
+   - Handles all CRUD operations for franchises
+   - Uses simple primary key operations
+
+2. **petstoreAdminStoreCrud** → `petstoreTenants` table  
+   - Handles all CRUD operations for stores
+   - Uses composite key operations (id + value)
+
+3. **petstoresample78b39c63** → Reads from both tables
+   - Performs API calls to fetch franchise and store data
+   - Transforms data for authorization entity building
+
+4. **petstoreAuthorizer** → Reads from both tables
+   - Similar to petstoresample78b39c63
+   - Used for custom authorization logic
+
+### DynamoDB Operations Used:
+- **QueryCommand** - For listing items by partition key
+- **GetCommand** - For retrieving single items by key(s)
+- **PutCommand** - For creating/updating items
+- **DeleteCommand** - For removing items
+
+## Migration Considerations
+
+For migration to relational database:
+
+1. **petstoreFranchise** → Simple table with primary key
+2. **petstoreTenants** → Requires compound primary key (id, value) or separate unique constraint
+3. **Relationships** → Foreign key constraints between stores and franchises
+4. **Entity Hierarchy** → May need additional junction tables for complex authorization relationships
+
+## Security Notes
+
+- Tables support fine-grained access control via AWS Verified Permissions
+- Authorization is based on user roles, store associations, and franchise relationships
+- No table-level encryption configuration found in IaC files (likely using default AWS managed keys)
+
+---
+
+**Document Generated:** Based on analysis of IaC files and Lambda function code
+**Analysis Date:** October 23, 2025
+**Source Code Base:** faas-to-iaas-migration-framework/src/faas-app

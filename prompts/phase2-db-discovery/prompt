@@ -1,0 +1,13 @@
+Please document the database layer for the FaaS application within the 'faas-app' directory.
+
+1.  **Prioritize Infrastructure as Code (IaC):** Analyze the configuration files within 'faas-app/amplify/backend/storage/'. Specifically, examine the `cli-inputs.json` files and any associated CloudFormation templates (`*-cloudformation-template.json` if present) for each subdirectory (e.g., `petstoreFranchise`, `petstoreTenants`). Extract the following details for each DynamoDB table defined:
+
+    - Table Name
+    - Primary Key (Partition Key name and type, Sort Key name and type if applicable)
+    - Any defined Global Secondary Indexes (GSIs), including their keys and projections.
+
+2.  **Supplement with Code Analysis (If Needed):** If the IaC files do not provide sufficient detail about non-key attributes, supplement the analysis by examining how the Lambda functions in 'faas-app/amplify/backend/function/' interact with these tables. Look for common attributes used in `getItem`, `putItem`, `query`, and `updateItem` operations via the AWS SDK for DynamoDB to infer other significant attributes and their likely types (String, Number, Boolean, List, Map).
+
+3.  **Output Format:** Present the documented schema for each table in a clear, readable text format. For each table, list its name, primary key, GSIs (if any), and key attributes identified from IaC or code.
+
+4.  **Save Output:** Save the final documentation to a new file located at 'phase2-db-discovery/data-base-definition.txt'. Create the 'phase2-db-discovery' directory if it doesn't exist.
