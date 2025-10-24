@@ -71,12 +71,28 @@ Ambos caminos convergen en: **Monolito IaaS Funcional**
 
 ## Ejemplo de Aplicación: PetStore
 
-En el proyecto PetStore se siguió el **Camino Unificado** porque:
+El proyecto PetStore siguió el **Camino de 2 Etapas** porque:
 
-- ✅ Solo 2 tablas DynamoDB (estructura simple)
+- ✅ Solo 2 tablas DynamoDB (pocas BDs)
+- ✅ Estructura simple sin duplicación compleja (baja duplicación)
 - ✅ Relaciones claras (franchise → stores)
-- ✅ No hay duplicación compleja de datos
-- ✅ Beneficio inmediato de BD IaaS
+- ✅ Beneficio de entrega rápida con menor riesgo inicial
+
+### Implementación en 2 Etapas:
+
+**Etapa 1: Backend NestJS + DynamoDB**
+
+- Migración inmediata del backend a NestJS con Arquitectura Hexagonal
+- Adaptadores DynamoDB mantienen la BD existente funcionando
+- Entrega rápida del monolito IaaS funcional
+- Reducción de riesgo al no cambiar BD y backend simultáneamente
+
+**Etapa 2: Migración de BD (Opcional/Futura)**
+
+- Si surge la necesidad de BD IaaS (ej: consultas complejas, herramientas SQL)
+- Solo requiere cambiar adaptadores de base de datos (~5-7 días trabajo)
+- 85% del código se mantiene igual gracias a Arquitectura Hexagonal
+- Migración controlada y predecible
 
 ## Arquitectura NestJS Hexagonal
 

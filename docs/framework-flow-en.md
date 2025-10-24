@@ -71,12 +71,28 @@ Both paths converge to: **Functional IaaS Monolith**
 
 ## Application Example: PetStore
 
-The PetStore project followed the **Unified Path** because:
+The PetStore project followed the **2-Stage Path** because:
 
-- ✅ Only 2 DynamoDB tables (simple structure)
+- ✅ Only 2 DynamoDB tables (few databases)
+- ✅ Simple structure without complex duplication (low duplication)
 - ✅ Clear relationships (franchise → stores)
-- ✅ No complex data duplication
-- ✅ Immediate benefit from IaaS DB
+- ✅ Benefit of fast delivery with lower initial risk
+
+### 2-Stage Implementation:
+
+**Stage 1: NestJS Backend + DynamoDB**
+
+- Immediate backend migration to NestJS with Hexagonal Architecture
+- DynamoDB adapters keep existing database working
+- Fast delivery of functional IaaS monolith
+- Risk reduction by not changing DB and backend simultaneously
+
+**Stage 2: Database Migration (Optional/Future)**
+
+- If IaaS DB becomes necessary (e.g., complex queries, SQL tools)
+- Only requires changing database adapters (~5-7 days work)
+- 85% of code remains unchanged thanks to Hexagonal Architecture
+- Controlled and predictable migration
 
 ## NestJS Hexagonal Architecture
 
