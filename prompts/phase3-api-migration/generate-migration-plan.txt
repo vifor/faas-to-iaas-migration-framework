@@ -2,12 +2,17 @@ Please analyze the API specification defined in `openapi.yaml` and the existing 
 
 Based on these inputs, suggest a detailed workplan to migrate the FaaS application logic into a new single monolithic project using the NestJS framework, adopting a Hexagonal Architecture (Ports and Adapters).
 
-**Crucially, first evaluate the feasibility of a two-phase migration based on the database analysis (`data-base-definition.txt`):**
-1.  **Assess Database Complexity:** Consider the number of tables (is it low, like 2-3?), the complexity of keys/indexes, and the potential for data duplication or normalization issues.
-2.  **Determine Migration Strategy:**
-    * **IF** a two-phase migration seems feasible (low complexity, manageable data structure): Generate a workplan focused *only* on **Phase 1: Migrating the backend logic** to NestJS (Hexagonal), assuming the application will **continue using the existing DynamoDB database** via a dedicated persistence adapter. The plan should outline steps for setting up NestJS modules, implementing ports/adapters, handling authentication/authorization, and integrating with DynamoDB using the AWS SDK.
-    * **ELSE (IF** the database structure suggests significant refactoring is needed or a relational model is highly preferable due to complexity/duplication): Generate a workplan for a **unified migration**, including steps for both **migrating the backend logic** to NestJS (Hexagonal) *and* **migrating the database** from DynamoDB to a relational database like PostgreSQL (including schema design, data migration strategy, and using an ORM like TypeORM in the NestJS persistence adapter).
+**Crucially, first evaluate the feasibility of a two-phase migration based on the framework criteria defined in the database analysis (`data-base-definition.txt`):**
+
+1.  **Apply Framework Decision Criteria:**
+    * **Count the number of databases/tables:** How many databases or major data stores are involved?
+    * **Assess data duplication:** Is there significant data duplication or complex normalization requirements across the data structure?
+
+2.  **Determine Migration Strategy Based on Framework Logic:**
+    * **IF 2-stage migration is viable** (Few databases AND Low duplication): Generate a workplan focused *only* on **Phase 1: Migrating the backend logic** to NestJS with Hexagonal Architecture, assuming the application will **continue using the existing database technology** (e.g., DynamoDB) via dedicated persistence adapters. The plan should outline steps for setting up NestJS modules, implementing ports/adapters for the existing database, handling authentication/authorization, and maintaining current database connections using appropriate SDKs.
+    
+    * **IF Unified migration is required** (Many databases OR High duplication/complexity): Generate a workplan for a **unified migration** that includes both **migrating the backend logic** to NestJS (Hexagonal) *and* **migrating to an IaaS database schema** (e.g., PostgreSQL) in a single phase. This should include database schema design, data migration strategy, and implementing persistence adapters for the new database technology using appropriate ORMs.
 
 The generated workplan should be structured logically (e.g., phases, key tasks, estimated effort if possible, deliverables/checkpoints) and cover aspects like project setup, module creation per API resource (franchise, store, etc.), authentication/authorization implementation (replicating Cognito/AVP logic within NestJS), testing strategy, and basic deployment considerations for the IaaS monolith.
 
-Save the final suggested workplan into a file named `generate-migration-plan.txt`.
+Save the final suggested workplan into a file named `detailed-migration-plan.txt`.
