@@ -41,6 +41,99 @@ Set-Location "c:\Tesis\faas-to-iaas-migration-framework\src\monolith-app"
 
 ---
 
+### **📋 MANDATORY: Task Completion Documentation**
+**Critical Requirement for Each Task**: After completing each task, create a comprehensive completion report in Markdown format:
+
+**File Location**: `src/monolith-app/docs/TASK_{NUMBER}_COMPLETION_REPORT.md`
+
+**Report Structure**:
+```markdown
+# Task {Number}: {Task Title} - Completion Report
+
+## 📋 Task Overview
+- **Objective**: [Brief description of task goal]
+- **Status**: ✅ COMPLETED / 🔄 IN PROGRESS / ❌ BLOCKED
+- **Completion Date**: [Date]
+
+## 🎯 Implementation Summary
+[2-3 paragraph summary of what was implemented]
+
+## 📁 Files Created/Modified
+- `path/to/file1.ts` - [Description]
+- `path/to/file2.ts` - [Description]
+
+## 🔧 Technical Details
+[Detailed technical implementation notes]
+
+## ✅ Validation Results
+[How the implementation was tested/validated]
+
+## 🔗 Dependencies/Integration
+[How this task integrates with previous tasks]
+
+## 📝 Notes and Considerations
+[Any important notes for future reference]
+```
+
+**Why This Matters**:
+- **Progress Tracking**: Clear visibility of completed work
+- **Technical Documentation**: Detailed implementation records
+- **Knowledge Transfer**: Comprehensive reference for team members
+- **Quality Assurance**: Validation and testing documentation
+- **Migration Audit**: Complete trail of migration decisions and implementations
+
+**Best Practice**: Create the completion report immediately after finishing each task, while the implementation details are fresh.
+
+---
+
+### **🔄 MANDATORY: Git Workflow for Each Task**
+**Critical Requirement for Version Control**: After completing each task and creating the completion report, commit all changes to maintain proper development workflow:
+
+**Git Workflow Steps**:
+```powershell
+# 1. Navigate to project root
+Set-Location "c:\Tesis\faas-to-iaas-migration-framework"
+
+# 2. Stage all changes
+git add .
+
+# 3. Commit with descriptive message
+git commit -m "feat: Complete Task {NUMBER} - {TASK_TITLE}
+
+✅ Task {NUMBER} Implementation:
+- [Brief bullet point of main accomplishment 1]
+- [Brief bullet point of main accomplishment 2]
+- [Brief bullet point of main accomplishment 3]
+
+📁 Key Files:
+- {file1.ts} - {description}
+- {file2.ts} - {description}
+
+📋 Documentation: 
+- Added TASK_{NUMBER}_COMPLETION_REPORT.md with full implementation details
+
+🔗 Dependencies: 
+- Builds upon Task {NUMBER-1}
+- Prepares foundation for Task {NUMBER+1}"
+```
+
+**Commit Message Template**:
+- **Prefix**: `feat:` for new features, `fix:` for bug fixes, `docs:` for documentation
+- **Title**: Clear task completion statement
+- **Body**: Structured breakdown of accomplishments, files, and dependencies
+
+**Why This Matters**:
+- **Version Control**: Clear checkpoints for each migration step
+- **Rollback Safety**: Easy reversion if issues arise in later steps
+- **Progress Tracking**: Git history shows exactly what was accomplished
+- **Team Collaboration**: Clear commit history for team members
+- **Migration Audit**: Complete version control trail of the migration process
+- **Quality Gates**: Forces validation before moving to next task
+
+**Best Practice**: Always commit immediately after creating the completion report, while the changes are fresh and validated.
+
+---
+
 ### **Phase 1: Project Foundation (Tasks 1-4)**
 
 #### **Task 1: Initialize NestJS Project Structure**
@@ -65,6 +158,8 @@ Set-Location "c:\Tesis\faas-to-iaas-migration-framework\src\monolith-app"
 - Basic app.module.ts
 - Docker configuration
 - Environment configuration setup
+- **📋 MANDATORY**: Create `docs/TASK_1_COMPLETION_REPORT.md` with implementation details
+- **🔄 MANDATORY**: Commit all changes with structured commit message following the git workflow
 
 ---
 
@@ -331,6 +426,21 @@ Include deployment scripts and documentation for IaaS deployment (EC2/ECS).
 - Incremental testing
 - Behavior preservation checks
 - Migration accuracy verification
+- **Mandatory completion reports**: Each task documented in `docs/TASK_{NUMBER}_COMPLETION_REPORT.md`
+
+### **Documentation Standards**
+- **Comprehensive tracking**: Every task generates detailed completion report
+- **Technical records**: Implementation details preserved for future reference
+- **Progress visibility**: Clear status and validation results for each step
+- **Knowledge transfer**: Complete documentation for team collaboration
+- **Migration audit trail**: Full record of decisions and implementations
+
+### **Version Control Standards**
+- **Incremental commits**: Each task completion results in a structured commit
+- **Clear commit messages**: Descriptive titles with detailed accomplishment breakdown
+- **Progress checkpoints**: Git history provides complete migration timeline
+- **Rollback safety**: Easy reversion to any previous task completion state
+- **Team collaboration**: Clear version control workflow for multiple contributors
 
 ---
 
