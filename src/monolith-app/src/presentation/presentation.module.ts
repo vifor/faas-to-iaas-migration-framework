@@ -7,11 +7,14 @@
  * 
  * Controller Categories:
  * 
- * 1. Admin Controllers (API Key Auth):
+ * 1. Authentication Controller (Public):
+ *    - AuthController: User authentication and profile management
+ * 
+ * 2. Admin Controllers (API Key Auth):
  *    - FranchiseAdminController: Franchise management operations
  *    - StoreAdminController: Store management operations
  * 
- * 2. Store Operation Controllers (JWT Auth):
+ * 3. Store Operation Controllers (JWT Auth):
  *    - PetStoreController: Pet management within stores
  *    - OrderStoreController: Order processing within stores
  *    - InventoryStoreController: Inventory and statistics
@@ -29,6 +32,9 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ApplicationModule } from '../application/application.module';
+
+// Authentication Controller
+import { AuthController } from './controllers/auth.controller';
 
 // Admin Controllers
 import { FranchiseAdminController } from './controllers/franchise-admin.controller';
@@ -57,6 +63,9 @@ import { ApiKeyGuard, JwtAuthGuard } from './guards';
     }),
   ],
   controllers: [
+    // Authentication Controller - Public endpoints
+    AuthController,
+    
     // Admin Controllers - API Key Authentication
     FranchiseAdminController,
     StoreAdminController,
