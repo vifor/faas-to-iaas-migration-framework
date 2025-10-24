@@ -313,21 +313,25 @@ export class AuthService {
     if (validApiKeys.includes(apiKey) || apiKey === adminApiKey) {
       this.logger.log('✅ Valid API key used');
       return {
-        isValid: true,
-        keyId: apiKey === adminApiKey ? 'admin_master' : 'api_key',
-        permissions: apiKey === adminApiKey 
-          ? ['franchise:read', 'franchise:write', 'store:read', 'store:write', 'user:read', 'user:write']
-          : ['franchise:read', 'store:read'],
-        expiresAt: undefined // API keys don't expire in this implementation
+        valid: true,
+        metadata: {
+          keyId: apiKey === adminApiKey ? 'admin_master' : 'api_key',
+          permissions: apiKey === adminApiKey 
+            ? ['franchise:read', 'franchise:write', 'store:read', 'store:write', 'user:read', 'user:write']
+            : ['franchise:read', 'store:read'],
+          expiresAt: undefined // API keys don't expire in this implementation
+        }
       };
     }
 
     this.logger.warn('❌ Invalid API key attempted');
     return {
-      isValid: false,
-      keyId: 'unknown',
-      permissions: [],
-      expiresAt: undefined
+      valid: false,
+      metadata: {
+        keyId: 'unknown',
+        permissions: [],
+        expiresAt: undefined
+      }
     };
   }
 
