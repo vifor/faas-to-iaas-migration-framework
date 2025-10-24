@@ -13,6 +13,13 @@ Based on these inputs, suggest a detailed workplan to migrate the FaaS applicati
     
     * **IF Unified migration is required** (Many databases OR High duplication/complexity): Generate a workplan for a **unified migration** that includes both **migrating the backend logic** to NestJS (Hexagonal) *and* **migrating to an IaaS database schema** (e.g., PostgreSQL) in a single phase. This should include database schema design, data migration strategy, and implementing persistence adapters for the new database technology using appropriate ORMs.
 
-The generated workplan should be structured logically (e.g., phases, key tasks, estimated effort if possible, deliverables/checkpoints) and cover aspects like project setup, module creation per API resource (franchise, store, etc.), authentication/authorization implementation (replicating Cognito/AVP logic within NestJS), testing strategy, and basic deployment considerations for the IaaS monolith.
+The generated workplan should be structured logically to facilitate GenAI-assisted migration execution, with each task designed as:
+* **Actionable prompts** that can be directly executed by AI assistants
+* **Clear inputs/outputs** specifying what files to read and what to generate
+* **Incremental steps** that build upon previous outputs
+* **Specific deliverables** that can be validated and used in subsequent steps
+* **Technology-specific commands** for setup, configuration, and implementation tasks
+
+Structure each task as a potential GenAI prompt with clear context, expected inputs, and desired outputs rather than traditional project management tasks with effort estimates.
 
 Save the final suggested workplan into a file named `detailed-migration-plan.txt`.

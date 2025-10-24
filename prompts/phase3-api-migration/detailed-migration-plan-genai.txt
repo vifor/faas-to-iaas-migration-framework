@@ -1,0 +1,320 @@
+# PetStore FaaS-to-IaaS Migration Workplan
+## GenAI-Assisted Phase 1: Backend Logic Migration to NestJS (2-Stage Approach)
+
+### 🎯 **Framework Decision Analysis**
+
+**1. Apply Framework Decision Criteria:**
+
+**Count the number of databases/tables:**
+- **2 DynamoDB tables**: petstoreFranchise and petstoreTenants
+- **Assessment**: Few databases ✅
+
+**Assess data duplication:**
+- **Simple relationships**: One-to-Many (Franchise → Stores)
+- **Clean structure**: No complex normalization issues
+- **Low duplication**: Clear entity boundaries with reference-based relationships  
+- **Assessment**: Low duplication ✅
+
+**2. Framework Decision Result:**
+**✅ 2-stage migration is viable** (Few databases AND Low duplication)
+
+**Migration Strategy**: GenAI-assisted migration focused *only* on **Phase 1: Backend logic** to NestJS with Hexagonal Architecture, continuing to use existing DynamoDB via dedicated persistence adapters.
+
+---
+
+## 🤖 **GenAI-Assisted Migration Sequence**
+
+### **Phase 1: Project Foundation (Tasks 1-4)**
+
+#### **Task 1: Initialize NestJS Project Structure**
+**GenAI Prompt**: 
+```
+Create a new NestJS project with TypeScript configuration suitable for a monolithic application migrating from AWS Lambda. Set up the basic project structure with:
+- Main application module
+- Environment configuration using @nestjs/config
+- Basic health check endpoint
+- Docker configuration for development
+- Package.json with all necessary dependencies for DynamoDB integration
+
+Generate all necessary configuration files and explain the project structure.
+```
+**Input Required**: None (fresh start)
+**Expected Output**: 
+- Complete NestJS project structure
+- package.json with dependencies
+- Basic app.module.ts
+- Docker configuration
+- Environment configuration setup
+
+---
+
+#### **Task 2: Configure DynamoDB Connection**
+**GenAI Prompt**:
+```
+Based on the database analysis in `prompts/phase2-db-discovery/data-base-definition.txt`, create a DynamoDB connection service for NestJS that can connect to the existing tables:
+- petstoreFranchise 
+- petstoreTenants
+
+Set up AWS SDK v3 integration with proper configuration management for different environments (dev/staging/prod). Include connection testing and error handling.
+```
+**Input Required**: 
+- `prompts/phase2-db-discovery/data-base-definition.txt`
+- Environment configuration from Task 1
+**Expected Output**:
+- DynamoDB connection service
+- AWS configuration module
+- Connection testing utilities
+
+---
+
+#### **Task 3: Implement Authentication System**
+**GenAI Prompt**:
+```
+Based on the OpenAPI specification in `src/faas-app/openapi.yaml`, implement the authentication system for NestJS that replicates the current FaaS authentication:
+- API Key authentication for /admin/* endpoints (x-api-key header)
+- JWT Bearer token authentication for /store/* endpoints
+
+Create Passport strategies, guards, and decorators. Ensure the authentication matches the current Lambda implementation.
+```
+**Input Required**: 
+- `src/faas-app/openapi.yaml`
+- NestJS project from Task 1
+**Expected Output**:
+- Passport JWT strategy
+- API key authentication guard
+- Authentication decorators
+- Auth module configuration
+
+---
+
+#### **Task 4: Design Hexagonal Architecture Structure**
+**GenAI Prompt**:
+```
+Create the hexagonal architecture foundation for the NestJS application with:
+- Domain entities for Franchise, Store, Pet, Order based on the OpenAPI spec
+- Repository port interfaces (contracts)
+- Service layer structure
+- Module organization following domain boundaries
+
+Structure the code to support the ports and adapters pattern where database adapters can be easily swapped.
+```
+**Input Required**:
+- `src/faas-app/openapi.yaml` (for entity definitions)
+- NestJS project structure from previous tasks
+**Expected Output**:
+- Domain entity classes
+- Repository port interfaces
+- Service layer structure
+- Module organization
+
+---
+
+### **Phase 2: Database Layer Implementation (Tasks 5-7)**
+
+#### **Task 5: Implement Franchise DynamoDB Repository**
+**GenAI Prompt**:
+```
+Implement the DynamoDB repository adapter for the Franchise entity based on:
+- Database schema from `prompts/phase2-db-discovery/data-base-definition.txt`
+- Repository port interface from Task 4
+- OpenAPI operations for franchise endpoints
+
+Handle all CRUD operations: Query, GetItem, PutItem, DeleteItem for the petstoreFranchise table. Include proper error handling and data mapping.
+```
+**Input Required**:
+- Repository port interface from Task 4
+- `prompts/phase2-db-discovery/data-base-definition.txt`
+- DynamoDB service from Task 2
+**Expected Output**:
+- DynamoDB franchise repository implementation
+- Data mapping utilities
+- Error handling
+
+---
+
+#### **Task 6: Implement Store DynamoDB Repository**
+**GenAI Prompt**:
+```
+Implement the DynamoDB repository adapter for the Store entity with composite key handling (id, value):
+- Based on petstoreTenants table structure
+- Handle composite key operations for GetItem and DeleteItem
+- Implement relationship handling with Franchise entities
+- Support all store operations from the OpenAPI specification
+
+Include proper composite key query patterns and relationship mapping.
+```
+**Input Required**:
+- Repository port interface from Task 4
+- `prompts/phase2-db-discovery/data-base-definition.txt`
+- Franchise repository from Task 5
+**Expected Output**:
+- DynamoDB store repository with composite key support
+- Relationship mapping with franchises
+- Composite key query utilities
+
+---
+
+#### **Task 7: Implement Pet and Order Repositories**
+**GenAI Prompt**:
+```
+Implement DynamoDB repository adapters for Pet and Order entities based on the store operations defined in the OpenAPI specification:
+- Pet repository for store pet management
+- Order repository for order processing
+- Support for store-level operations and authorization context
+- Integration with existing Franchise and Store relationships
+
+Include data mapping and relationship handling for the store operation endpoints.
+```
+**Input Required**:
+- Repository port interfaces from Task 4
+- Store repository from Task 6
+- OpenAPI store operations specification
+**Expected Output**:
+- Pet repository implementation
+- Order repository implementation
+- Store relationship integration
+
+---
+
+### **Phase 3: HTTP Layer Implementation (Tasks 8-10)**
+
+#### **Task 8: Implement Admin Controllers**
+**GenAI Prompt**:
+```
+Create NestJS controllers for all administrative endpoints based on the OpenAPI specification:
+- Franchise admin controller (/admin/franchise/* - 6 endpoints)
+- Store admin controller (/admin/store/* - 6 endpoints)
+
+Implement proper API key authentication, request/response DTOs, validation, and error handling that matches the current Lambda response format. Include composite key handling for store operations.
+```
+**Input Required**:
+- `src/faas-app/openapi.yaml` (admin endpoints)
+- Repository implementations from Tasks 5-6
+- Authentication system from Task 3
+**Expected Output**:
+- Franchise admin controller
+- Store admin controller with composite key support
+- Request/Response DTOs
+- Validation and error handling
+
+---
+
+#### **Task 9: Implement Store Operation Controllers**
+**GenAI Prompt**:
+```
+Create NestJS controllers for store operation endpoints based on the OpenAPI specification:
+- Pet management controller (/store/{storeId}/pet/* - 4 endpoints)
+- Order management controller (/store/{storeId}/order/* - 4 endpoints)  
+- Inventory controller (/store/{storeId}/inventory - 1 endpoint)
+
+Implement JWT authentication and prepare authorization integration points. Ensure proper store context handling and response format matching.
+```
+**Input Required**:
+- `src/faas-app/openapi.yaml` (store endpoints)
+- Repository implementations from Task 7
+- Authentication system from Task 3
+**Expected Output**:
+- Pet management controller
+- Order management controller
+- Inventory controller
+- JWT authentication integration
+
+---
+
+#### **Task 10: Implement Authorization System**
+**GenAI Prompt**:
+```
+Analyze the current AWS Verified Permissions implementation in the Lambda functions and create a custom authorization service for NestJS that replicates the same behavior:
+- Entity transformation logic (Franchise/Store hierarchy)
+- Cedar policy evaluation patterns
+- Authorization guards for store operations
+- User context extraction and permission checking
+
+Ensure the authorization decisions match the current Lambda implementation exactly.
+```
+**Input Required**:
+- Lambda function code (authorization logic)
+- Store controllers from Task 9
+- JWT authentication from Task 3
+**Expected Output**:
+- Custom authorization service
+- Authorization guards and decorators
+- Entity transformation logic
+- Permission evaluation system
+
+---
+
+### **Phase 4: Testing and Deployment (Tasks 11-12)**
+
+#### **Task 11: Generate Comprehensive Test Suite**
+**GenAI Prompt**:
+```
+Create a comprehensive test suite for the migrated NestJS application:
+- Unit tests for all services and repositories
+- Integration tests for all 21 API endpoints
+- Authentication and authorization test scenarios
+- DynamoDB integration tests with proper mocking
+- Test data setup and teardown
+
+Ensure test coverage matches the current Lambda function behavior and validates the migration accuracy.
+```
+**Input Required**:
+- Complete NestJS application from previous tasks
+- OpenAPI specification for test scenarios
+**Expected Output**:
+- Unit test suite
+- Integration test suite
+- Test utilities and mocks
+- Test data management
+
+---
+
+#### **Task 12: Create Production Deployment Configuration**
+**GenAI Prompt**:
+```
+Create production-ready deployment configuration for the NestJS monolith:
+- Docker containerization for production
+- Environment configuration for AWS deployment
+- Health checks and monitoring setup
+- CI/CD pipeline configuration
+- Load balancer and scaling configuration
+
+Include deployment scripts and documentation for IaaS deployment (EC2/ECS).
+```
+**Input Required**:
+- Complete NestJS application
+- AWS environment requirements
+**Expected Output**:
+- Production Docker configuration
+- Deployment scripts
+- CI/CD pipeline setup
+- Monitoring and health checks
+
+---
+
+## 🎯 **GenAI Execution Benefits**
+
+### **Structured Progression**
+- Each task builds upon previous outputs
+- Clear input/output specifications
+- Incremental validation points
+- Modular development approach
+
+### **AI-Friendly Design**
+- Specific, actionable prompts
+- Clear context and requirements
+- Defined deliverables
+- Technology-specific guidance
+
+### **Quality Assurance**
+- Built-in validation steps
+- Incremental testing
+- Behavior preservation checks
+- Migration accuracy verification
+
+---
+
+**Total Tasks**: 12 GenAI-assisted prompts
+**Architecture**: Hexagonal with DynamoDB adapters
+**Risk Level**: Low (preserves existing database)
+**Migration Type**: 2-Stage (backend only, framework-compliant)
