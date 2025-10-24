@@ -12,8 +12,8 @@ export const databaseConfig = registerAs('database', () => ({
     },
     
     // Connection settings
-    maxRetries: parseInt(process.env.DYNAMODB_MAX_RETRIES, 10) || 3,
-    timeout: parseInt(process.env.DYNAMODB_TIMEOUT, 10) || 30000,
+    maxRetries: parseInt(process.env.DYNAMODB_MAX_RETRIES || '3', 10),
+    timeout: parseInt(process.env.DYNAMODB_TIMEOUT || '30000', 10),
     
     // Local development settings
     local: {
@@ -24,20 +24,20 @@ export const databaseConfig = registerAs('database', () => ({
   
   // Connection pool settings
   connectionPool: {
-    max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
-    min: parseInt(process.env.DB_POOL_MIN, 10) || 2,
-    acquireTimeoutMillis: parseInt(process.env.DB_ACQUIRE_TIMEOUT, 10) || 60000,
-    createTimeoutMillis: parseInt(process.env.DB_CREATE_TIMEOUT, 10) || 30000,
-    destroyTimeoutMillis: parseInt(process.env.DB_DESTROY_TIMEOUT, 10) || 5000,
-    idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT, 10) || 300000,
-    reapIntervalMillis: parseInt(process.env.DB_REAP_INTERVAL, 10) || 1000,
+    max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+    min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+    acquireTimeoutMillis: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '60000', 10),
+    createTimeoutMillis: parseInt(process.env.DB_CREATE_TIMEOUT || '30000', 10),
+    destroyTimeoutMillis: parseInt(process.env.DB_DESTROY_TIMEOUT || '5000', 10),
+    idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '300000', 10),
+    reapIntervalMillis: parseInt(process.env.DB_REAP_INTERVAL || '1000', 10),
   },
   
   // Health check configuration
   healthCheck: {
     enabled: process.env.DB_HEALTH_CHECK_ENABLED !== 'false',
-    timeout: parseInt(process.env.DB_HEALTH_CHECK_TIMEOUT, 10) || 5000,
-    interval: parseInt(process.env.DB_HEALTH_CHECK_INTERVAL, 10) || 30000,
+    timeout: parseInt(process.env.DB_HEALTH_CHECK_TIMEOUT || '5000', 10),
+    interval: parseInt(process.env.DB_HEALTH_CHECK_INTERVAL || '30000', 10),
   },
 }));
 

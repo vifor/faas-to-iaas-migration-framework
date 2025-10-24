@@ -48,7 +48,7 @@ export class HealthService extends HealthIndicator {
       throw new HealthCheckError('Database health check failed', result);
     } catch (error) {
       const result = this.getStatus('database', false, {
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw new HealthCheckError('Database health check failed', result);
     }

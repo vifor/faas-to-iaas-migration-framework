@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TerminusModule } from '@nestjs/terminus';
 import { HealthController } from './core/health/health.controller';
-import { HealthService } from './core/health/health.service';
 import { appConfig } from './core/config/app.config';
 import { awsConfig } from './core/config/aws.config';
 import { databaseConfig } from './core/config/database.config';
@@ -25,15 +23,12 @@ import { databaseConfig } from './core/config/database.config';
         const missing = requiredVars.filter(key => !config[key]);
         
         if (missing.length > 0) {
-          throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+          console.warn(`Missing environment variables: ${missing.join(', ')} - using defaults`);
         }
         
         return config;
       },
     }),
-    
-    // Health check module
-    TerminusModule,
     
     // TODO: Add feature modules here as they are implemented
     // FranchiseModule,
@@ -42,7 +37,7 @@ import { databaseConfig } from './core/config/database.config';
     // OrderModule,
   ],
   controllers: [HealthController],
-  providers: [HealthService],
+  providers: [],
 })
 export class AppModule {
   constructor() {

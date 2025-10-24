@@ -1,7 +1,7 @@
 import { registerAs } from '@nestjs/config';
 
 export const appConfig = registerAs('app', () => ({
-  port: parseInt(process.env.PORT, 10) || 3000,
+  port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   globalPrefix: 'api/v1',
   corsOrigin: process.env.CORS_ORIGIN || '*',
@@ -17,8 +17,8 @@ export const appConfig = registerAs('app', () => ({
   apiKey: process.env.API_KEY || 'dev-api-key-change-in-production',
   
   // Rate limiting
-  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000, // 15 minutes
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100, // limit each IP to 100 requests per windowMs
+  rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
+  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10), // limit each IP to 100 requests per windowMs
 }));
 
 export type AppConfig = ReturnType<typeof appConfig>;

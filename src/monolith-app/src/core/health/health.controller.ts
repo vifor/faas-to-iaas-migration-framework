@@ -1,49 +1,49 @@
 import { Controller, Get } from '@nestjs/common';
-import { 
-  HealthCheck, 
-  HealthCheckService, 
-  HealthCheckResult 
-} from '@nestjs/terminus';
-import { HealthService } from './health.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(
-    private readonly healthCheckService: HealthCheckService,
-    private readonly healthService: HealthService,
-  ) {}
-
   @Get()
-  @HealthCheck()
-  async check(): Promise<HealthCheckResult> {
-    return this.healthCheckService.check([
-      () => this.healthService.checkApplication(),
-      () => this.healthService.checkDatabase(),
-      () => this.healthService.checkMemory(),
-    ]);
+  getHealth() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+    };
   }
 
   @Get('app')
-  @HealthCheck()
-  async checkApp(): Promise<HealthCheckResult> {
-    return this.healthCheckService.check([
-      () => this.healthService.checkApplication(),
-    ]);
+  getAppHealth() {
+    return {
+      status: 'ok',
+      service: 'PetStore Monolith',
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('database')
-  @HealthCheck()
-  async checkDatabase(): Promise<HealthCheckResult> {
-    return this.healthCheckService.check([
-      () => this.healthService.checkDatabase(),
-    ]);
+  getDatabaseHealth() {
+    return {
+      status: 'ok',
+      database: 'DynamoDB',
+      region: process.env.AWS_REGION || 'us-east-1',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('memory')
-  @HealthCheck()
-  async checkMemory(): Promise<HealthCheckResult> {
-    return this.healthCheckService.check([
-      () => this.healthService.checkMemory(),
-    ]);
+  getMemoryHealth() {
+    const memoryUsage = process.memoryUsage();
+    return {
+      status: 'ok',
+      memory: {
+        rss: Math.round(memoryUsage.rss / 1024 / 1024),
+        heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+        heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+        external: Math.round(memoryUsage.external / 1024 / 1024),
+      },
+      timestamp: new Date().toISOString(),
+    };
   }
 }

@@ -6,16 +6,5 @@
     "deleteOutDir": true,
     "webpack": true,
     "tsConfigPath": "tsconfig.build.json"
-  },
-  "projects": {
-    "petstore-monolith": {
-      "type": "application",
-      "root": "",
-      "entryFile": "main",
-      "sourceRoot": "src",
-      "compilerOptions": {
-        "tsConfigPath": "tsconfig.build.json"
-      }
-    }
   }
 }
