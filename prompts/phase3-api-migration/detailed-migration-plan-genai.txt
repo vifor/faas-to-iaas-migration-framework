@@ -24,6 +24,23 @@
 
 ## 🤖 **GenAI-Assisted Migration Sequence**
 
+### **⚠️ IMPORTANT: Directory Navigation for Windows PowerShell**
+**Critical Tip for GenAI Execution**: When working with the NestJS monolith application, always use the full absolute path for directory navigation to avoid positioning issues:
+
+```powershell
+Set-Location "c:\Tesis\faas-to-iaas-migration-framework\src\monolith-app"
+```
+
+**Why this matters**:
+- Relative path navigation often fails in PowerShell contexts
+- Multiple terminal sessions can cause confusion about current working directory
+- The monolith-app directory is the primary working location for most tasks
+- Using absolute paths ensures consistent execution regardless of starting position
+
+**Best Practice**: Start each task execution by explicitly setting the location to the monolith-app directory before running any npm, nest, or file operations.
+
+---
+
 ### **Phase 1: Project Foundation (Tasks 1-4)**
 
 #### **Task 1: Initialize NestJS Project Structure**
@@ -37,6 +54,9 @@ Create a new NestJS project with TypeScript configuration suitable for a monolit
 - Package.json with all necessary dependencies for DynamoDB integration
 
 Generate all necessary configuration files and explain the project structure.
+
+IMPORTANT: When executing commands, first navigate to the correct directory:
+Set-Location "c:\Tesis\faas-to-iaas-migration-framework\src\monolith-app"
 ```
 **Input Required**: None (fresh start)
 **Expected Output**: 
