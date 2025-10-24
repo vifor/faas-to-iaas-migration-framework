@@ -1,10 +1,11 @@
+/// <reference types="jest" />
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { mockClient } from 'aws-sdk-client-mock';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 // Global test configuration
-let app: INestApplication;
+let app: INestApplication | undefined;
 let dynamoMock: any;
 
 beforeAll(async () => {
