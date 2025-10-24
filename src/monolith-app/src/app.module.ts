@@ -5,6 +5,7 @@ import { appConfig } from './core/config/app.config';
 import { awsConfig } from './core/config/aws.config';
 import { databaseConfig } from './core/config/database.config';
 import { DatabaseModule } from './database/database.module';
+import { PresentationModule } from './presentation/presentation.module';
 
 @Module({
   imports: [
@@ -34,11 +35,8 @@ import { DatabaseModule } from './database/database.module';
     // Database module for DynamoDB connection
     DatabaseModule,
     
-    // TODO: Add feature modules here as they are implemented
-    // FranchiseModule,
-    // StoreModule,
-    // PetModule,
-    // OrderModule,
+    // Presentation layer with REST API controllers
+    PresentationModule,
   ],
   controllers: [HealthController],
   providers: [],
