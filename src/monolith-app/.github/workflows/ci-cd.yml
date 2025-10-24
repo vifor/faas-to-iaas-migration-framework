@@ -1,0 +1,276 @@
+# GitHub Actions CI/CD Pipeline for PetStore Monolith
+
+name: PetStore Monolith CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "src/monolith-app/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/monolith-app/**"
+
+env:
+  NODE_VERSION: "18"
+  AWS_REGION: us-east-1
+
+jobs:
+  # Quality Assurance and Testing
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8000:8000
+        options: >-
+          --health-cmd "curl -f http://localhost:8000/"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "src/monolith-app/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: src/monolith-app
+        run: npm ci
+
+      - name: Run linting
+        working-directory: src/monolith-app
+        run: npm run lint
+
+      - name: Run unit tests
+        working-directory: src/monolith-app
+        run: npm run test
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:8000
+          NODE_ENV: test
+
+      - name: Run E2E tests
+        working-directory: src/monolith-app
+        run: npm run test:e2e
+        env:
+          DYNAMODB_ENDPOINT: http://localhost:8000
+          NODE_ENV: test
+
+      - name: Generate test coverage
+        working-directory: src/monolith-app
+        run: npm run test:cov
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: src/monolith-app/coverage
+
+  # Security Scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: "src/monolith-app/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: src/monolith-app
+        run: npm ci
+
+      - name: Run security audit
+        working-directory: src/monolith-app
+        run: npm audit --audit-level=moderate
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --file=src/monolith-app/package.json
+
+  # Build Docker Image
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, security]
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/petstore-monolith
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: src/monolith-app
+          file: src/monolith-app/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to ECS Staging
+        run: |
+          # Update ECS service with new image
+          aws ecs update-service \
+            --cluster petstore-staging \
+            --service petstore-monolith-staging \
+            --force-new-deployment \
+            --task-definition petstore-monolith-staging
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster petstore-staging \
+            --services petstore-monolith-staging
+
+      - name: Run smoke tests
+        working-directory: src/monolith-app
+        run: |
+          npm ci
+          STAGING_URL=${{ secrets.STAGING_URL }} npm run test:smoke
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to ECS Production
+        run: |
+          # Update ECS service with new image
+          aws ecs update-service \
+            --cluster petstore-production \
+            --service petstore-monolith-production \
+            --force-new-deployment \
+            --task-definition petstore-monolith-production
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster petstore-production \
+            --services petstore-monolith-production
+
+      - name: Run smoke tests
+        working-directory: src/monolith-app
+        run: |
+          npm ci
+          PRODUCTION_URL=${{ secrets.PRODUCTION_URL }} npm run test:smoke
+
+      - name: Notify deployment success
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: "#deployments"
+          text: "🚀 PetStore Monolith deployed to production successfully!"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Performance Testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: src/monolith-app
+        run: npm ci
+
+      - name: Run performance tests
+        working-directory: src/monolith-app
+        run: |
+          STAGING_URL=${{ secrets.STAGING_URL }} npm run test:performance
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results
+          path: src/monolith-app/performance-results/
