@@ -18,6 +18,7 @@ import {
   DynamoDBStoreRepository,
   DynamoDBPetRepository,
   DynamoDBOrderRepository,
+  DynamoDBUserRepository,
 } from './repositories';
 
 // Repository Tokens for Dependency Injection
@@ -25,6 +26,7 @@ export const FRANCHISE_REPOSITORY = 'FRANCHISE_REPOSITORY';
 export const STORE_REPOSITORY = 'STORE_REPOSITORY';
 export const PET_REPOSITORY = 'PET_REPOSITORY';
 export const ORDER_REPOSITORY = 'ORDER_REPOSITORY';
+export const USER_REPOSITORY = 'USER_REPOSITORY';
 
 @Module({
   imports: [
@@ -54,6 +56,12 @@ export const ORDER_REPOSITORY = 'ORDER_REPOSITORY';
       provide: ORDER_REPOSITORY,
       useClass: DynamoDBOrderRepository,
     },
+    
+    // User Repository
+    {
+      provide: USER_REPOSITORY,
+      useClass: DynamoDBUserRepository,
+    },
   ],
   exports: [
     // Export repository tokens for injection in other modules
@@ -61,6 +69,7 @@ export const ORDER_REPOSITORY = 'ORDER_REPOSITORY';
     STORE_REPOSITORY, 
     PET_REPOSITORY,
     ORDER_REPOSITORY,
+    USER_REPOSITORY,
   ],
 })
 export class InfrastructureModule {}
