@@ -4,6 +4,7 @@ import { HealthController } from './core/health/health.controller';
 import { appConfig } from './core/config/app.config';
 import { awsConfig } from './core/config/aws.config';
 import { databaseConfig } from './core/config/database.config';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
@@ -29,6 +30,9 @@ import { databaseConfig } from './core/config/database.config';
         return config;
       },
     }),
+    
+    // Database module for DynamoDB connection
+    DatabaseModule,
     
     // TODO: Add feature modules here as they are implemented
     // FranchiseModule,
