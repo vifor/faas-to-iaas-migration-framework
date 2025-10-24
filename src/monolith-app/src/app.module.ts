@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HealthController } from './core/health/health.controller';
 import { appConfig } from './core/config/app.config';
@@ -7,6 +7,7 @@ import { databaseConfig } from './core/config/database.config';
 import { DatabaseModule } from './database/database.module';
 import { PresentationModule } from './presentation/presentation.module';
 import { AuthModule } from './application/modules/auth.module';
+import { RequestLoggingMiddleware, RequestValidationMiddleware } from './presentation/middleware';
 
 @Module({
   imports: [
@@ -45,9 +46,23 @@ import { AuthModule } from './application/modules/auth.module';
   controllers: [HealthController],
   providers: [],
 })
-export class AppModule {
+export class AppModule implements NestModule {
   constructor() {
     console.log('🏗️  AppModule initialized');
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  }
+
+  configure(consumer: MiddlewareConsumer) {
+    // Apply request validation middleware to all API routes
+    consumer
+      .apply(RequestValidationMiddleware)
+      .forRoutes('api/*');
+
+    // Apply request logging middleware to all routes
+    consumer
+      .apply(RequestLoggingMiddleware)
+      .forRoutes('*');
+
+    console.log('🛡️ Security middleware configured (Validation + Logging)');
   }
 }

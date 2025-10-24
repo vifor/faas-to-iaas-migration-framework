@@ -47,7 +47,7 @@ import {
 import { PetService } from '../../application/services/pet.service';
 import { CreatePetDto, UpdatePetDto, PetResponseDto } from '../../application/dtos/pet.dto';
 import { PetStatus, PetSpecies } from '../../domain/entities/pet.entity';
-import { JwtAuthGuard } from '../guards';
+import { JwtAuthGuard, AuthorizationGuard, RequireAction, RequireResource } from '../guards';
 
 // Response DTOs for OpenAPI specification
 class PetListResponse {
@@ -71,7 +71,8 @@ class ErrorResponse {
 @ApiTags('Store Operations - Pets')
 @Controller('store/:storeId/pet')
 @ApiSecurity('BearerAuth')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, AuthorizationGuard)
+@RequireResource('MyApplication::Store')
 export class PetStoreController {
   private readonly logger = new Logger(PetStoreController.name);
 
@@ -84,6 +85,7 @@ export class PetStoreController {
    * GET /store/{storeId}/pets
    */
   @Get('s') // Note: 's' to match '/pets' from the route
+  @RequireAction('SearchPets')
   @ApiOperation({
     summary: 'List pets in store',
     description: 'Retrieve a list of pets available in the specified store with optional filtering.',
@@ -164,6 +166,7 @@ export class PetStoreController {
    * POST /store/{storeId}/pet/create
    */
   @Post('create')
+  @RequireAction('AddPet')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create a new pet',
@@ -309,6 +312,8 @@ export class PetStoreController {
    * PUT /store/{storeId}/pet/update/{petId}
    */
   @Put('update/:petId')
+  @RequireAction('UpdatePet')
+  @RequireResource('MyApplication::Pet')
   @ApiOperation({
     summary: 'Update a pet',
     description: 'Update information for a specific pet in the store',

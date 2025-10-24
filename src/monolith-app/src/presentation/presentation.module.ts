@@ -46,7 +46,10 @@ import { OrderStoreController } from './controllers/order-store.controller';
 import { InventoryStoreController } from './controllers/inventory-store.controller';
 
 // Authentication Guards
-import { ApiKeyGuard, JwtAuthGuard } from './guards';
+import { ApiKeyGuard, JwtAuthGuard, AuthorizationGuard } from './guards';
+
+// Middleware
+import { RequestLoggingMiddleware, RequestValidationMiddleware } from './middleware';
 
 @Module({
   imports: [
@@ -70,7 +73,7 @@ import { ApiKeyGuard, JwtAuthGuard } from './guards';
     FranchiseAdminController,
     StoreAdminController,
     
-    // Store Operation Controllers - JWT Authentication
+    // Store Operation Controllers - JWT Authentication + Authorization
     PetStoreController,
     OrderStoreController,
     InventoryStoreController,
@@ -79,16 +82,23 @@ import { ApiKeyGuard, JwtAuthGuard } from './guards';
     // Authentication guards for API protection
     ApiKeyGuard,
     JwtAuthGuard,
+    AuthorizationGuard,
+    
+    // Middleware for request processing
+    RequestLoggingMiddleware,
+    RequestValidationMiddleware,
   ],
   exports: [
     // Export guards for use in other modules if needed
     ApiKeyGuard,
     JwtAuthGuard,
+    AuthorizationGuard,
   ],
 })
 export class PresentationModule {
   constructor() {
     console.log('🌐 Presentation Module initialized - REST API controllers ready');
-    console.log('🔐 Authentication guards configured (API Key + JWT)');
+    console.log('🔐 Authentication guards configured (API Key + JWT + Authorization)');
+    console.log('🛡️ Security middleware configured (Logging + Validation)');
   }
 }

@@ -27,6 +27,7 @@ import { FranchiseService } from './services/franchise.service';
 import { StoreService } from './services/store.service';
 import { PetService } from './services/pet.service';
 import { OrderService } from './services/order.service';
+import { AuthorizationService } from './services/authorization.service';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { OrderService } from './services/order.service';
     StoreService,
     PetService,
     OrderService,
+    AuthorizationService,
   ],
   exports: [
     // Export services for use in presentation layer (controllers)
@@ -45,10 +47,12 @@ import { OrderService } from './services/order.service';
     StoreService,
     PetService,
     OrderService,
+    AuthorizationService,
   ],
 })
 export class ApplicationModule {
   constructor() {
     console.log('🏗️ Application Module initialized - Business services ready');
+    console.log('🔐 Authorization Service included - Cedar-like policy engine ready');
   }
 }
