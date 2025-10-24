@@ -18,7 +18,7 @@ flowchart TD
     %% 2-Stage Path - Reuses DB steps
     D -->|"Yes (Few DBs, Low Duplication)"| E[Implement NestJS Hexagonal Backend Logic<br>with FaaS DB Adapter DynamoDB]
     E --> G{Migrate DB now?<br>Optional}
-    G -->|No| H[End: Functional IaaS Monolith<br>using FaaS DB]
+    G -->|No| H[End: Functional IaaS Monolith]
     G -->|Yes| L
 
     %% Finalization - All paths converge here

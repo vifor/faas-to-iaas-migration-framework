@@ -18,7 +18,7 @@ flowchart TD
     %% Camino de 2 Etapas - Reutiliza pasos de BD
     D -->|"Sí (Pocas BDs, Baja Duplicación)"| E[Implementar Lógica Backend NestJS Hexagonal<br>con Adaptador BD FaaS DynamoDB]
     E --> G{¿Migrar BD ahora?<br>Opcional}
-    G -->|No| H[Fin: Monolito IaaS Funcional<br>usando BD FaaS]
+    G -->|No| H[Fin: Monolito IaaS Funcional]
     G -->|Sí| L
 
     %% Finalización - Todas las rutas convergen aquí
