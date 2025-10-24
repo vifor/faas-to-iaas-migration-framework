@@ -15,11 +15,10 @@ describe('StoreService', () => {
   const mockStore = new Store(
     'store-001',
     'store-data',
-    'franchise-001',
     'Test Store',
     '123 Test St, Test City, TC',
-    'Test Manager',
-    '+1-555-TEST'
+    'franchise-001',
+    'active'
   );
 
   beforeEach(async () => {
@@ -67,7 +66,6 @@ describe('StoreService', () => {
       franchiseId: 'franchise-001',
       name: 'New Store',
       address: '456 New St, New City, NC',
-      manager: 'New Manager',
       phone: '+1-555-NEW'
     };
 
@@ -138,11 +136,11 @@ describe('StoreService', () => {
       const stores = [mockStore, mockStore];
       storeRepository.findAll.mockResolvedValue(stores);
 
-      const result = await service.getAllStores(1);
+      const result = await service.getAllStores('franchise-001');
 
-      expect(result.stores).toHaveLength(1);
-      expect(result.hasMore).toBe(true);
-      expect(result.lastEvaluatedKey).toBeDefined();
+      expect(result.stores).toHaveLength(2);
+      expect(result.hasMore).toBe(false);
+      expect(result.lastEvaluatedKey).toBeUndefined();
     });
   });
 
@@ -160,9 +158,10 @@ describe('StoreService', () => {
 
   describe('updateStore', () => {
     const updateDto: UpdateStoreDto = {
+      id: 'store-001',
+      value: 'store-data',
       name: 'Updated Store',
       address: 'Updated Address',
-      manager: 'Updated Manager',
       phone: '+1-555-UPDATED'
     };
 

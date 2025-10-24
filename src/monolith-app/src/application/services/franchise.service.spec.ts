@@ -131,6 +131,7 @@ describe('FranchiseService', () => {
 
   describe('updateFranchise', () => {
     const updateDto: UpdateFranchiseDto = {
+      id: 'franchise-001',
       name: 'Updated Franchise',
       location: 'Updated City, UC',
     };
