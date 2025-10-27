@@ -11,11 +11,11 @@ import { AdminOperations } from './test-scenarios/admin-operations.js';
 import { StoreOperations } from './test-scenarios/store-operations.js';
 
 // Load configuration
-const config = getConfig(process.env.NODE_ENV || 'development');
+const config = getConfig(__ENV.NODE_ENV || 'development');
 
 // Shared test data
 const testData = new SharedArray('test data', function () {
-  return ScenarioGenerator.generateMixedWorkflow();
+  return Array.from({ length: 10 }, () => ScenarioGenerator.generateMixedWorkflow());
 });
 
 // Test configuration can be overridden by command line options
@@ -39,7 +39,7 @@ export const options = {
 export function setup() {
   console.log('🚀 Starting PetStore FaaS Load Test');
   console.log(`Base URL: ${config.baseUrl}`);
-  console.log(`Test Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Test Environment: ${__ENV.NODE_ENV || 'development'}`);
   
   // Pre-authenticate users to avoid auth overhead during test
   refreshAllTokens();

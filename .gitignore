@@ -1,0 +1,40 @@
+# Detailed instructions files (local only)
+prompts/phase4-k6-tests/detailed-instructions.md
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# K6 test results
+scripts/load-testing/results/
+scripts/load-testing/*.json
+scripts/load-testing/*.xml
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
