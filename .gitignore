@@ -10,10 +10,16 @@ node_modules/
 .env.production
 .env.development
 
-# K6 test results
+# K6 test results and output files
 scripts/load-testing/results/
-scripts/load-testing/*.json
+scripts/load-testing/*-results*.json
+scripts/load-testing/test-results-*.json
+scripts/load-testing/*-output*.json
 scripts/load-testing/*.xml
+
+# Exclude configuration files from ignore (allow them)
+!scripts/load-testing/smoke-test.json
+!scripts/load-testing/*-config.json
 
 # Logs
 *.log
