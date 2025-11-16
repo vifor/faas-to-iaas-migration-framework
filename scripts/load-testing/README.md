@@ -35,17 +35,78 @@ sudo apt-get update
 sudo apt-get install k6
 ```
 
-### 2. Configure Environment
+### 2. Configure Environment Variables
 
-Copy `config/environment.example.js` to `config/environment.js` and update with your actual values:
+🔐 **IMPORTANT**: This project uses environment variables to keep sensitive credentials secure.
+
+#### Set up environment variables:
+
+1. Copy the example file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` with your actual credentials:
+
+   ```bash
+   # Edit the file with your preferred editor
+   notepad .env   # Windows
+   nano .env      # Linux/macOS
+   ```
+
+3. **Required variables for smoke test**:
+
+   - `SMOKE_TEST_BASE_URL`: Your API Gateway URL
+   - `SMOKE_TEST_API_KEY`: Your admin API key
+
+4. **For comprehensive tests, also configure**:
+   - `FAAS_BASE_URL`: FaaS API endpoint
+   - `FAAS_ADMIN_API_KEY`: Admin API key
+   - `IAAS_BASE_URL`: IaaS/Monolith endpoint
+   - Other credentials as needed
+
+⚠️ **NEVER commit the `.env` file to version control** - it's included in `.gitignore` for security.
+
+📖 **See [SECURITY.md](../../SECURITY.md) for detailed security practices.**
 
 ```javascript
 cp config/environment.example.js config/environment.js
 ```
 
+## Quick Start
+
+### Smoke Test (Recommended First Step)
+
+A quick health check to verify your API is reachable:
+
+```bash
+# Using PowerShell (Windows - Recommended)
+./run-smoke-simple.ps1
+
+# Or manually with K6
+k6 run simple-smoke-test.js --config smoke-test.json
+```
+
+The smoke test:
+
+- ✅ Loads credentials from `.env` file securely
+- ✅ Executes in ~2 seconds (1 iteration)
+- ✅ Validates API connectivity and response times
+- ✅ Shows environment configuration status
+
+**Before running any other tests, ensure the smoke test passes!**
+
 ## Test Types
 
 ### 1. Smoke Tests
+
+- **Purpose**: Quick API health check
+- **Duration**: ~2 seconds
+- **Users**: 1 VU, 1 iteration
+- **Command**: `./run-smoke-simple.ps1` or `npm run test:smoke`
+
+### 2. Load Tests
 
 - **Purpose**: Basic functionality validation
 - **Duration**: 30 seconds
