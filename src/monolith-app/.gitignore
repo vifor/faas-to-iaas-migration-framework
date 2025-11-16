@@ -145,3 +145,7 @@ coverage/
 
 # Docker
 .docker/
+
+# Deployment and package files
+*.zip
+**/*.zip
