@@ -9,6 +9,8 @@ node_modules/
 .env.local
 .env.production
 .env.development
+scripts/load-testing/.env.local
+scripts/load-testing/config/environment.local.js
 
 # K6 test results and output files
 scripts/load-testing/results/
