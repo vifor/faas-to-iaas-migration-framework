@@ -55,10 +55,10 @@ sudo apt-get install k6
    nano .env      # Linux/macOS
    ```
 
-3. **Required variables for smoke test**:
-
    - `SMOKE_TEST_BASE_URL`: Your API Gateway URL
    - `SMOKE_TEST_API_KEY`: Your admin API key
+
+- `TEST_JWT`: JWT válido para pruebas de endpoints protegidos
 
 4. **For comprehensive tests, also configure**:
    - `FAAS_BASE_URL`: FaaS API endpoint
