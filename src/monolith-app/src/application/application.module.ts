@@ -22,7 +22,14 @@
  */
 
 import { Module } from '@nestjs/common';
-import { InfrastructureModule } from '../infrastructure/infrastructure.module';
+import { 
+  InfrastructureModule, 
+  FRANCHISE_REPOSITORY,
+  STORE_REPOSITORY,
+  PET_REPOSITORY,
+  ORDER_REPOSITORY,
+  USER_REPOSITORY
+} from '../infrastructure/infrastructure.module';
 import { FranchiseService } from './services/franchise.service';
 import { StoreService } from './services/store.service';
 import { PetService } from './services/pet.service';
@@ -40,6 +47,28 @@ import { AuthorizationService } from './services/authorization.service';
     PetService,
     OrderService,
     AuthorizationService,
+    
+    // Repository aliases for dependency injection
+    {
+      provide: 'IFranchiseRepository',
+      useExisting: FRANCHISE_REPOSITORY,
+    },
+    {
+      provide: 'IStoreRepository', 
+      useExisting: STORE_REPOSITORY,
+    },
+    {
+      provide: 'IPetRepository',
+      useExisting: PET_REPOSITORY,
+    },
+    {
+      provide: 'IOrderRepository',
+      useExisting: ORDER_REPOSITORY,
+    },
+    {
+      provide: 'IUserRepository',
+      useExisting: USER_REPOSITORY,
+    },
   ],
   exports: [
     // Export services for use in presentation layer (controllers)
