@@ -29,14 +29,10 @@
  */
 
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ApplicationModule } from '../application/application.module';
+import { AuthModule } from '../application/modules/auth.module';
 
-// Authentication Controller
-import { AuthController } from './controllers/auth.controller';
-
-// Admin Controllers
+// Admin Controllers (Auth controller is in AuthModule)
 import { FranchiseAdminController } from './controllers/franchise-admin.controller';
 import { StoreAdminController } from './controllers/store-admin.controller';
 
@@ -45,31 +41,19 @@ import { PetStoreController } from './controllers/pet-store.controller';
 import { OrderStoreController } from './controllers/order-store.controller';
 import { InventoryStoreController } from './controllers/inventory-store.controller';
 
-// Authentication Guards
-import { ApiKeyGuard, JwtAuthGuard, AuthorizationGuard } from './guards';
+// Authorization Guard (JWT and API Key guards come from AuthModule)
+import { AuthorizationGuard } from './guards/authorization.guard';
 
 // Middleware
 import { RequestLoggingMiddleware, RequestValidationMiddleware } from './middleware';
 
 @Module({
   imports: [
-    ApplicationModule, // Import application services
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '24h'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    ApplicationModule, // Import application services (includes AuthorizationService)
+    AuthModule, // Import authentication module with guards and services
   ],
   controllers: [
-    // Authentication Controller - Public endpoints
-    AuthController,
-    
-    // Admin Controllers - API Key Authentication
+    // Admin Controllers - API Key Authentication (AuthController is in AuthModule)
     FranchiseAdminController,
     StoreAdminController,
     
@@ -79,9 +63,7 @@ import { RequestLoggingMiddleware, RequestValidationMiddleware } from './middlew
     InventoryStoreController,
   ],
   providers: [
-    // Authentication guards for API protection
-    ApiKeyGuard,
-    JwtAuthGuard,
+    // Authorization guard for business logic protection
     AuthorizationGuard,
     
     // Middleware for request processing
@@ -89,9 +71,7 @@ import { RequestLoggingMiddleware, RequestValidationMiddleware } from './middlew
     RequestValidationMiddleware,
   ],
   exports: [
-    // Export guards for use in other modules if needed
-    ApiKeyGuard,
-    JwtAuthGuard,
+    // Export authorization guard for use in other modules if needed
     AuthorizationGuard,
   ],
 })
