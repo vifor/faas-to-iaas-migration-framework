@@ -23,6 +23,9 @@ scripts/load-testing/*.xml
 !scripts/load-testing/smoke-test.json
 !scripts/load-testing/*-config.json
 
+# Script sensible con credenciales
+scripts/get-jwt-token.sh
+
 # Logs
 *.log
 logs/
