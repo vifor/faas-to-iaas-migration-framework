@@ -54,15 +54,15 @@ services:
       - prometheus
       - grafana
       
-    # Resource limits for production
+    # Resource limits for production (optimized for t3.small)
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
+          cpus: '1.0'  # Reduced from 2.0 for cost optimization
+          memory: 1.5G  # Reduced from 2G, fits t3.small (2GB RAM)
         reservations:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '0.25'  # Reduced from 0.5
+          memory: 256M  # Reduced from 512M
 
   # Prometheus for Metrics Collection
   prometheus:

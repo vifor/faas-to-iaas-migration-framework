@@ -48,6 +48,9 @@ Thumbs.db
 
 # Temporary files
 tmp/
+
+# Deployment documentation with potentially sensitive cost information
+src/monolith-app/deployment/COST_OPTIMIZATION.md
 temp/
 
 # Deployment and package files

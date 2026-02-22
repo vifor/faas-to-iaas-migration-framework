@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# AWS EC2 Deployment Script for PetStore Monolith
-# This script deploys the containerized PetStore application to AWS EC2
+# AWS EC2 Minimal Deployment Script for PetStore Monolith
+# Ultra-low-cost deployment without monitoring stack (Prometheus/Grafana)
 
 set -e
 
-# Configuration
+# Configuration - Minimal cost options
 REGION=${AWS_REGION:-"us-east-1"}
 KEY_PAIR_NAME=${KEY_PAIR_NAME:-"petstore-keypair"}
 SECURITY_GROUP_NAME=${SECURITY_GROUP_NAME:-"petstore-sg"}
-INSTANCE_TYPE=${INSTANCE_TYPE:-"t3.small"}  # Optimized for cost: ~$15/month vs t3.medium ~$30/month
+INSTANCE_TYPE=${INSTANCE_TYPE:-"t3.micro"}  # Ultra low cost: ~$7.5/month
 AMI_ID=${AMI_ID:-"ami-xxxxxxxxxxxxxxxxx"}  # Replace with your preferred AMI
 SUBNET_ID=${SUBNET_ID}
 VPC_ID=${VPC_ID}
 
-echo "🚀 Starting PetStore AWS EC2 Deployment..."
+echo "🚀 Starting PetStore Minimal AWS EC2 Deployment..."
 
 # Function to check if AWS CLI is configured
 check_aws_cli() {
@@ -31,9 +31,9 @@ check_aws_cli() {
     echo "✅ AWS CLI is configured"
 }
 
-# Function to create security group
+# Function to create security group with minimal ports
 create_security_group() {
-    echo "📋 Creating security group..."
+    echo "📋 Creating minimal security group..."
     
     # Check if security group already exists
     if aws ec2 describe-security-groups --group-names $SECURITY_GROUP_NAME --region $REGION &> /dev/null; then
@@ -42,13 +42,13 @@ create_security_group() {
     else
         SG_ID=$(aws ec2 create-security-group \
             --group-name $SECURITY_GROUP_NAME \
-            --description "Security group for PetStore application" \
+            --description "Minimal security group for PetStore application" \
             --vpc-id $VPC_ID \
             --region $REGION \
             --query 'GroupId' \
             --output text)
         
-        # Add inbound rules - SSH restricted to user's IP for security
+        # Add minimal inbound rules - SSH restricted to user's IP
         aws ec2 authorize-security-group-ingress \
             --group-id $SG_ID \
             --protocol tcp \
@@ -66,15 +66,8 @@ create_security_group() {
         aws ec2 authorize-security-group-ingress \
             --group-id $SG_ID \
             --protocol tcp \
-            --port 443 \
+            --port 3000 \
             --cidr 0.0.0.0/0 \
-            --region $REGION
-        
-        aws ec2 authorize-security-group-ingress \
-            --group-id $SG_ID \
-            --protocol tcp \
-            --port 3001 \
-            --cidr ${MONITORING_CIDR:-"$(curl -s https://ipinfo.io/ip)/32"} \
             --region $REGION
         
         echo "✅ Security group created: $SG_ID"
@@ -99,7 +92,7 @@ create_key_pair() {
     fi
 }
 
-# Function to create user data script
+# Function to create minimal user data script
 create_user_data() {
     cat > user-data.sh << 'EOF'
 #!/bin/bash
@@ -119,7 +112,7 @@ cd /home/ec2-user
 git clone https://github.com/USER_PLACEHOLDER/REPO_PLACEHOLDER.git
 cd faas-to-iaas-migration-framework/src/monolith-app
 
-# Create environment file
+# Create minimal environment file (no monitoring)
 cat > .env << 'ENVEOF'
 NODE_ENV=production
 AWS_REGION=${AWS_REGION:-us-east-1}
@@ -129,42 +122,20 @@ DYNAMODB_FRANCHISE_TABLE=${DYNAMODB_FRANCHISE_TABLE:-petstoreFranchise}
 DYNAMODB_STORE_TABLE=${DYNAMODB_STORE_TABLE:-petstoreTenants}
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-LOG_LEVEL=${LOG_LEVEL:-info}
-METRICS_ENABLED=${METRICS_ENABLED:-true}
-GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-$(openssl rand -base64 16)}
+LOG_LEVEL=${LOG_LEVEL:-warn}
+METRICS_ENABLED=${METRICS_ENABLED:-false}
 ENVEOF
 
-# Generate self-signed SSL certificate for demo
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout nginx/ssl/key.pem \
-    -out nginx/ssl/cert.pem \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+# Start only the application (no monitoring stack)
+docker-compose up -d petstore-app
 
-# Start the application
-docker-compose -f docker-compose.prod.yml up -d
-
-# Set up log rotation
-cat > /etc/logrotate.d/petstore << 'LOGEOF'
-/home/ec2-user/faas-to-iaas-migration-framework/src/monolith-app/logs/*.log {
-    daily
-    missingok
-    rotate 30
-    compress
-    delaycompress
-    notifempty
-    copytruncate
-}
-LOGEOF
-
-echo "✅ PetStore application deployed successfully!"
+echo "✅ PetStore minimal application deployed successfully!"
 EOF
 }
 
 # Function to launch EC2 instance
 launch_instance() {
-    echo "🖥️  Launching EC2 instance..."
+    echo "🖥️  Launching minimal EC2 instance..."
     
     create_user_data
     
@@ -176,7 +147,7 @@ launch_instance() {
         --security-group-ids $SG_ID \
         --subnet-id $SUBNET_ID \
         --user-data file://user-data.sh \
-        --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=PetStore-Monolith}]' \
+        --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=PetStore-Minimal}]' \
         --region $REGION \
         --query 'Instances[0].InstanceId' \
         --output text)
@@ -196,44 +167,8 @@ launch_instance() {
     
     echo "✅ Instance is running!"
     echo "📍 Public IP: $PUBLIC_IP"
-    echo "🔗 Application URL: https://$PUBLIC_IP"
-    echo "📊 Grafana URL: http://$PUBLIC_IP:3001"
+    echo "🔗 Application URL: http://$PUBLIC_IP:3000"
     echo "🔑 SSH Command: ssh -i ${KEY_PAIR_NAME}.pem ec2-user@$PUBLIC_IP"
-}
-
-# Function to create CloudWatch alarms
-create_cloudwatch_alarms() {
-    echo "📊 Creating CloudWatch alarms..."
-    
-    # CPU Utilization Alarm
-    aws cloudwatch put-metric-alarm \
-        --alarm-name "PetStore-HighCPU" \
-        --alarm-description "Triggers when CPU exceeds 80%" \
-        --metric-name CPUUtilization \
-        --namespace AWS/EC2 \
-        --statistic Average \
-        --period 300 \
-        --threshold 80 \
-        --comparison-operator GreaterThanThreshold \
-        --dimensions Name=InstanceId,Value=$INSTANCE_ID \
-        --evaluation-periods 2 \
-        --region $REGION
-    
-    # Status Check Alarm
-    aws cloudwatch put-metric-alarm \
-        --alarm-name "PetStore-StatusCheck" \
-        --alarm-description "Triggers when instance status check fails" \
-        --metric-name StatusCheckFailed \
-        --namespace AWS/EC2 \
-        --statistic Maximum \
-        --period 60 \
-        --threshold 0 \
-        --comparison-operator GreaterThanThreshold \
-        --dimensions Name=InstanceId,Value=$INSTANCE_ID \
-        --evaluation-periods 2 \
-        --region $REGION
-    
-    echo "✅ CloudWatch alarms created"
 }
 
 # Main execution
@@ -242,20 +177,20 @@ main() {
     
     if [ -z "$VPC_ID" ] || [ -z "$SUBNET_ID" ]; then
         echo "❌ VPC_ID and SUBNET_ID environment variables are required"
-        echo "Usage: VPC_ID=vpc-xxx SUBNET_ID=subnet-xxx JWT_SECRET=xxx API_KEY=xxx ./deploy-aws.sh"
-        echo "Optional: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, GRAFANA_ADMIN_PASSWORD"
+        echo "Usage: VPC_ID=vpc-xxx SUBNET_ID=subnet-xxx ./deploy-minimal-aws.sh"
+        echo "Optional: JWT_SECRET, API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY"
         exit 1
     fi
     
     create_security_group
     create_key_pair
     launch_instance
-    create_cloudwatch_alarms
     
     echo ""
-    echo "🎉 Deployment completed successfully!"
-    echo "⏳ Please wait 5-10 minutes for the application to fully start up."
-    echo "📝 Check the logs with: ssh -i ${KEY_PAIR_NAME}.pem ec2-user@$PUBLIC_IP 'cd faas-to-iaas-migration-framework/src/monolith-app && docker-compose logs'"
+    echo "🎉 Minimal deployment completed successfully!"
+    echo "💰 Monthly cost: ~$7.50 for t3.micro instance"
+    echo "⏳ Please wait 3-5 minutes for the application to fully start up."
+    echo "📝 Check the logs with: ssh -i ${KEY_PAIR_NAME}.pem ec2-user@$PUBLIC_IP 'cd faas-to-iaas-migration-framework/src/monolith-app && docker-compose logs petstore-app'"
 }
 
 main "$@"
