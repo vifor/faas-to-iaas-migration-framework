@@ -1,4 +1,4 @@
-Analyze the FaaS application code within the 'faas-app' directory. Identify all API endpoints, their HTTP methods, path parameters, and expected request/response structures based on the Lambda function handlers (like Express.js routes). Generate a comprehensive OpenAPI 3.0 specification in YAML format. Ensure the specification includes:
+Analyze the FaaS application code within the 'faas-app' directory. Identify all API endpoints, their HTTP methods, path parameters, and expected request/response structures based on the Lambda function handlers (like Express.js routes). Generate a comprehensive OpenAPI 3.0 specification in YAML format  in docs/output folder and store an comprehensive report of execution in docs/log/phase1.log . Ensure the specification includes:
 1. Clear summaries and descriptions for each path and operation.
 2. Definitions for path parameters (e.g., {id}).
 3. Basic security scheme definitions (mentioning ApiKeyAuth and BearerAuth based on path prefixes like /admin).

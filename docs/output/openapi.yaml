@@ -1,0 +1,1617 @@
+openapi: 3.0.3
+info:
+  title: PetStore FaaS API
+  description: |
+    OpenAPI 3.0 specification extracted from the PetStore FaaS application deployed on AWS
+    using Amplify. Generated as part of Phase 1 (API Discovery) of the FaaS-to-IaaS
+    migration framework.
+
+    ## Architecture Overview
+
+    The FaaS application consists of three Lambda functions exposed through a single API
+    Gateway, plus a Lambda Authorizer:
+
+    - **petstoreAdminFranchiseCrud** — Express.js CRUD handler for `/admin/franchise`.
+      Backed by DynamoDB table `petstoreFranchise` (PK: id, no sort key).
+    - **petstoreAdminStoreCrud** — Express.js CRUD handler for `/admin/store`.
+      Backed by DynamoDB table `petstoreTenants` (PK: id, SK: value).
+    - **petstoresample78b39c63** — Store operations handler for `/store/{storeId}/*`.
+      Enforces authorization via Amazon Verified Permissions (AVP) on every request.
+    - **petstoreAuthorizer** — API Gateway Lambda Authorizer. Verifies Cognito JWT tokens
+      and queries AVP to produce an IAM policy (ALLOW/DENY) for each request.
+
+    ## Security Model
+
+    - Admin endpoints (`/admin/*`) require an API key (`x-api-key` header). The key is
+      stored in AWS SSM Parameter Store at `/avp-petstore-demo/{env}/ApiKey`.
+    - Store endpoints (`/store/*`) require a Cognito ID token (Bearer JWT). Authorization
+      is enforced per-action via Amazon Verified Permissions using the Cedar policy language.
+
+    ## Known Specification Gaps
+
+    - `GET /admin/franchise` and `GET /admin/store` (list-all): These paths are registered
+      in API Gateway (`cli-inputs.json`) but **no explicit list-all Express handler exists**
+      in the Lambda source. Behaviour in production may be a 404 from Express.
+    - Pet and Order data schemas are **inferred** from the AVP policy schema
+      (`policySchema.json`) and domain knowledge. The store Lambda enforces authorization
+      but does not expose explicit data CRUD; actual pet/order storage details are not
+      present in the analysed source code.
+    - `POST /store/{storeId}/pet/update/{petId}` uses **POST** (not PUT).
+    - `POST /store/{storeId}/order/cancel/{orderNumber}` uses **POST** (not DELETE).
+      Both differ from REST conventions and from the IaaS monolith implementation.
+
+  version: 1.0.0
+  contact:
+    name: FaaS-to-IaaS Migration Framework
+
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    description: AWS API Gateway endpoint
+    variables:
+      apiId:
+        default: 5brhnloiod
+        description: API Gateway REST API ID
+      region:
+        default: sa-east-1
+        description: AWS region where the stack is deployed
+      stage:
+        default: main
+        description: Deployment stage
+
+tags:
+  - name: Admin - Franchises
+    description: |
+      Administrative CRUD operations for franchise management.
+      Lambda: petstoreAdminFranchiseCrud | Table: petstoreFranchise (PK: id)
+  - name: Admin - Stores
+    description: |
+      Administrative CRUD operations for store management.
+      Lambda: petstoreAdminStoreCrud | Table: petstoreTenants (PK: id, SK: value)
+  - name: Store Operations - Pets
+    description: |
+      Pet management operations within a specific store.
+      Lambda: petstoresample78b39c63 | Authorization: AVP (Cognito JWT)
+  - name: Store Operations - Orders
+    description: |
+      Order management operations within a specific store.
+      Lambda: petstoresample78b39c63 | Authorization: AVP (Cognito JWT)
+  - name: Store Operations - Inventory
+    description: |
+      Inventory query operations for a specific store.
+      Lambda: petstoresample78b39c63 | Authorization: AVP (Cognito JWT)
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: |
+        API key for administrative endpoints (/admin/*).
+        Validated by API Gateway Usage Plan. The key value is stored in AWS SSM Parameter
+        Store at /avp-petstore-demo/{env}/ApiKey and retrieved at runtime by the Lambda
+        authorizer when making internal service calls.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Amazon Cognito ID token for store operation endpoints (/store/*).
+        Tokens are issued by the Cognito User Pool (petstoresample483a619c).
+        The Lambda authorizer (petstoreAuthorizer) verifies the token and extracts the
+        following Cognito claims used for AVP authorization:
+          - cognito:username — principal identity
+          - cognito:groups — group memberships (mapped to AVP Group entities)
+          - custom:franchiseCode — comma-separated franchise IDs the user belongs to
+          - custom:employmentStoreCode — comma-separated store IDs the user is employed at
+
+  schemas:
+
+    # ──────────────────────────────────────────────────────────────
+    # Franchise
+    # DynamoDB table: petstoreFranchise
+    # PK: id (String) | No sort key
+    # AVP entity type: MyApplication::StoreFranchise
+    # ──────────────────────────────────────────────────────────────
+    Franchise:
+      type: object
+      description: |
+        Represents a pet store franchise that groups one or more store locations.
+        Maps to AVP entity type MyApplication::StoreFranchise.
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique franchise identifier (DynamoDB partition key).
+          example: franchise-001
+        name:
+          type: string
+          description: Display name of the franchise.
+          example: Pet Paradise Downtown
+        stores:
+          type: array
+          description: List of store IDs belonging to this franchise.
+          items:
+            type: string
+          example:
+            - store-001
+            - store-002
+        geo:
+          type: string
+          description: Geographic location or region descriptor.
+          example: New York, NY
+
+    FranchiseList:
+      type: array
+      description: Array of franchise objects returned by query operations.
+      items:
+        $ref: '#/components/schemas/Franchise'
+
+    # ──────────────────────────────────────────────────────────────
+    # Store
+    # DynamoDB table: petstoreTenants
+    # PK: id (String) | SK: value (String)
+    # AVP entity type: MyApplication::Store
+    # ──────────────────────────────────────────────────────────────
+    Store:
+      type: object
+      description: |
+        Represents a physical pet store location (tenant).
+        Uses a DynamoDB composite key: id (partition key) + value (sort key).
+        Maps to AVP entity type MyApplication::Store, which is a member of
+        MyApplication::StoreFranchise.
+      required:
+        - id
+        - value
+      properties:
+        id:
+          type: string
+          description: Store identifier (DynamoDB partition key).
+          example: store-001
+        value:
+          type: string
+          description: |
+            Store sort key. Used as a sub-type or branch discriminator
+            (e.g., "main", "branch").
+          example: main
+        name:
+          type: string
+          description: Display name of the store location.
+          example: Downtown Pet Store
+        address:
+          type: string
+          description: Physical street address.
+          example: 123 Main St, New York, NY 10001
+        geo:
+          type: string
+          description: Geographic location string (from AVP Store entity schema).
+          example: New York, NY
+        franchise:
+          type: object
+          description: Reference to the parent franchise.
+          properties:
+            id:
+              type: string
+              description: Parent franchise identifier.
+              example: franchise-001
+
+    StoreList:
+      type: array
+      description: Array of store objects returned by query operations.
+      items:
+        $ref: '#/components/schemas/Store'
+
+    # ──────────────────────────────────────────────────────────────
+    # Pet
+    # Inferred from: AVP policySchema.json entity type MyApplication::Pet
+    # AVP attributes: store (Store ref), owner (User ref)
+    # ──────────────────────────────────────────────────────────────
+    Pet:
+      type: object
+      description: |
+        Represents a pet available for sale in a store.
+        Schema inferred from the AVP policy entity type definition and domain model.
+        The FaaS store Lambda enforces authorization for pet operations via AVP;
+        actual pet data storage details are not present in the analysed Lambda source.
+      properties:
+        petId:
+          type: string
+          description: Unique pet identifier.
+          example: pet-001
+        name:
+          type: string
+          description: Name given to the pet.
+          example: Buddy
+        species:
+          type: string
+          description: Species of the pet.
+          enum:
+            - Dog
+            - Cat
+            - Bird
+            - Fish
+            - Rabbit
+            - Other
+          example: Dog
+        breed:
+          type: string
+          description: Breed of the pet (species-specific).
+          example: Golden Retriever
+        age:
+          type: integer
+          description: Age in months.
+          example: 12
+        price:
+          type: number
+          format: float
+          description: Sale price in USD.
+          example: 500.00
+        status:
+          type: string
+          description: Current availability status in the store inventory.
+          enum:
+            - available
+            - pending
+            - sold
+          example: available
+        storeId:
+          type: string
+          description: ID of the store this pet belongs to (AVP Store entity reference).
+          example: store-001
+        description:
+          type: string
+          description: Free-text description of the pet.
+          example: Friendly and energetic golden retriever puppy.
+
+    PetList:
+      type: object
+      description: Pageable list of pets.
+      properties:
+        pets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pet'
+        count:
+          type: integer
+          description: Total number of pets returned.
+          example: 5
+
+    # ──────────────────────────────────────────────────────────────
+    # Order
+    # Inferred from: AVP policySchema.json entity type MyApplication::Order
+    # AVP attributes: store (Store ref), owner (User ref)
+    # AVP actions: PlaceOrder, GetOrder, CancelOrder, ListOrders
+    # ──────────────────────────────────────────────────────────────
+    Order:
+      type: object
+      description: |
+        Represents a pet purchase order placed in a store.
+        Schema inferred from the AVP policy entity type and action definitions.
+        Authorization for GetOrder and CancelOrder checks the order's owner attribute.
+      properties:
+        orderNumber:
+          type: string
+          description: Unique order identifier.
+          example: order-001
+        petId:
+          type: string
+          description: Identifier of the pet being purchased.
+          example: pet-001
+        storeId:
+          type: string
+          description: ID of the store where the order was placed (AVP Store entity ref).
+          example: store-001
+        customerId:
+          type: string
+          description: Cognito username of the customer who placed the order.
+          example: user-john-001
+        quantity:
+          type: integer
+          description: Number of units ordered (typically 1 per pet).
+          default: 1
+          example: 1
+        status:
+          type: string
+          description: Current order status.
+          enum:
+            - placed
+            - approved
+            - delivered
+            - cancelled
+          example: placed
+        totalAmount:
+          type: number
+          format: float
+          description: Total order value in USD.
+          example: 500.00
+        orderDate:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the order was placed.
+          example: '2024-01-15T10:30:00Z'
+
+    OrderList:
+      type: object
+      description: Pageable list of orders.
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        count:
+          type: integer
+          example: 3
+
+    # ──────────────────────────────────────────────────────────────
+    # Inventory
+    # Computed aggregate for a store
+    # AVP action: GetStoreInventory on MyApplication::Store
+    # ──────────────────────────────────────────────────────────────
+    Inventory:
+      type: object
+      description: |
+        Aggregated inventory view for a store.
+        Computed from pet availability statuses and order statistics.
+      properties:
+        storeId:
+          type: string
+          example: store-001
+        totalPets:
+          type: integer
+          example: 25
+        availablePets:
+          type: integer
+          example: 20
+        pendingPets:
+          type: integer
+          example: 3
+        soldPets:
+          type: integer
+          example: 2
+        totalOrders:
+          type: integer
+          example: 15
+
+    # ──────────────────────────────────────────────────────────────
+    # Common response envelopes
+    # Derived from Express response patterns in Lambda app.js files
+    # ──────────────────────────────────────────────────────────────
+    SuccessPostResponse:
+      type: object
+      description: |
+        Standard envelope for successful POST (create) operations.
+        Returned by admin Lambda Express handlers on DynamoDB PutItem success.
+      properties:
+        success:
+          type: string
+          example: 'post call succeed!'
+        url:
+          type: string
+          description: Request URL echo.
+          example: /admin/franchise
+        data:
+          type: object
+          description: DynamoDB PutItem response metadata (typically empty).
+
+    SuccessPutResponse:
+      type: object
+      description: |
+        Standard envelope for successful PUT (update) operations.
+        Returned by admin Lambda Express handlers on DynamoDB PutItem success.
+      properties:
+        success:
+          type: string
+          example: 'put call succeed!'
+        url:
+          type: string
+          example: /admin/store
+        data:
+          type: object
+          description: DynamoDB PutItem response metadata (typically empty).
+
+    DeleteResponse:
+      type: object
+      description: |
+        Standard envelope for successful DELETE operations.
+        Returned by admin Lambda Express handlers on DynamoDB DeleteItem success.
+      properties:
+        url:
+          type: string
+          description: Request URL echo.
+          example: /admin/franchise/object/franchise-001
+        data:
+          type: object
+          description: DynamoDB DeleteItem response metadata (typically empty).
+
+    AuthorizationResponse:
+      type: object
+      description: |
+        Response envelope from store operation endpoints.
+        The store Lambda (petstoresample78b39c63) validates the Cognito JWT and queries
+        Amazon Verified Permissions on every request. The response body contains the AVP
+        authorization decision. A 200 status indicates ALLOW; 403 indicates DENY.
+      properties:
+        message:
+          type: string
+          example: 'Successful backend response for POST /store/store-001/pet/create'
+        decision:
+          type: string
+          enum:
+            - ALLOW
+            - DENY
+          example: ALLOW
+
+    ErrorResponse:
+      type: object
+      description: Standard error response body.
+      properties:
+        error:
+          type: string
+          description: Short error identifier.
+          example: Could not load items
+        message:
+          type: string
+          description: Human-readable error description.
+          example: An unexpected error occurred while processing the request.
+        statusCode:
+          type: integer
+          example: 500
+
+# ════════════════════════════════════════════════════════════════════
+# PATHS
+# ════════════════════════════════════════════════════════════════════
+
+paths:
+
+  # ────────────────────────────────────────────────────────────────
+  # ADMIN — FRANCHISE
+  # Lambda: petstoreAdminFranchiseCrud
+  # DynamoDB table: petstoreFranchise  |  PK: id (String), no SK
+  # Security: ApiKeyAuth (x-api-key header)
+  # ────────────────────────────────────────────────────────────────
+
+  /admin/franchise:
+    get:
+      tags:
+        - Admin - Franchises
+      summary: List all franchises
+      description: |
+        Retrieves all franchise records from the petstoreFranchise DynamoDB table.
+
+        **Implementation note:** This path is registered in API Gateway (`cli-inputs.json`)
+        but no explicit `GET /admin/franchise` (list-all) handler exists in the Lambda
+        Express app. The defined handler is `GET /admin/franchise/:id` (query by id).
+        In production this route may return a 404 from Express.
+      operationId: listFranchises
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Array of franchise objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FranchiseList'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — missing or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Admin - Franchises
+      summary: Create a new franchise
+      description: |
+        Creates a new franchise record in the petstoreFranchise DynamoDB table using
+        PutItem. If a record with the same `id` already exists it will be overwritten
+        (upsert semantics).
+      operationId: createFranchise
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Franchise'
+            example:
+              id: franchise-003
+              name: Pet Paradise Uptown
+              stores:
+                - store-005
+      responses:
+        '200':
+          description: Franchise created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPostResponse'
+              example:
+                success: 'post call succeed!'
+                url: /admin/franchise
+                data: {}
+        '400':
+          description: Bad request — invalid payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — missing or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Admin - Franchises
+      summary: Update a franchise
+      description: |
+        Updates an existing franchise record using DynamoDB PutItem (full replace).
+        The `id` field must be present in the request body to identify the record.
+      operationId: updateFranchise
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Franchise'
+            example:
+              id: franchise-001
+              name: Pet Paradise Downtown Updated
+              stores:
+                - store-001
+                - store-002
+                - store-003
+      responses:
+        '200':
+          description: Franchise updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPutResponse'
+              example:
+                success: 'put call succeed!'
+                url: /admin/franchise
+                data: {}
+        '400':
+          description: Bad request — missing id or invalid payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Franchise not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/franchise/{franchiseId}:
+    get:
+      tags:
+        - Admin - Franchises
+      summary: Query franchises by ID
+      description: |
+        Queries the petstoreFranchise DynamoDB table for records matching the given
+        `franchiseId` using a KeyCondition (DynamoDB QueryCommand on partition key).
+        Returns an array — typically one item since `id` is the partition key and the
+        table has no sort key.
+      operationId: queryFranchisesById
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: franchiseId
+          in: path
+          required: true
+          description: Franchise partition key value to query.
+          schema:
+            type: string
+          example: franchise-001
+      responses:
+        '200':
+          description: Array of matching franchise records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FranchiseList'
+        '400':
+          description: Bad request — invalid id format.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/franchise/object/{franchiseId}:
+    get:
+      tags:
+        - Admin - Franchises
+      summary: Get a specific franchise (GetItem)
+      description: |
+        Retrieves a single franchise record from the petstoreFranchise DynamoDB table
+        using GetItem with `franchiseId` as the partition key.
+        Returns the item directly or an empty object if not found.
+      operationId: getFranchise
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: franchiseId
+          in: path
+          required: true
+          description: Franchise partition key (id).
+          schema:
+            type: string
+          example: franchise-001
+      responses:
+        '200':
+          description: Franchise record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Franchise'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Franchise not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Admin - Franchises
+      summary: Delete a franchise
+      description: |
+        Permanently deletes a franchise record from the petstoreFranchise DynamoDB table
+        using DeleteItem with `franchiseId` as the partition key.
+      operationId: deleteFranchise
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: franchiseId
+          in: path
+          required: true
+          description: Franchise partition key (id) to delete.
+          schema:
+            type: string
+          example: franchise-001
+      responses:
+        '200':
+          description: Franchise deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+              example:
+                url: /admin/franchise/object/franchise-001
+                data: {}
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Franchise not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ────────────────────────────────────────────────────────────────
+  # ADMIN — STORE
+  # Lambda: petstoreAdminStoreCrud
+  # DynamoDB table: petstoreTenants  |  PK: id (String), SK: value (String)
+  # Security: ApiKeyAuth (x-api-key header)
+  # ────────────────────────────────────────────────────────────────
+
+  /admin/store:
+    get:
+      tags:
+        - Admin - Stores
+      summary: List all stores
+      description: |
+        Retrieves all store records from the petstoreTenants DynamoDB table.
+
+        **Implementation note:** This path is registered in API Gateway but no explicit
+        `GET /admin/store` (list-all) handler exists in the Lambda Express app.
+        The defined handler is `GET /admin/store/:id` (query by partition key).
+        In production this route may return a 404 from Express.
+      operationId: listStores
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Array of store objects.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreList'
+        '403':
+          description: Forbidden — missing or invalid API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Admin - Stores
+      summary: Create a new store
+      description: |
+        Creates a new store record in the petstoreTenants DynamoDB table using PutItem.
+        Both `id` (partition key) and `value` (sort key) must be present in the body.
+        Upsert semantics: overwrites any existing record with the same composite key.
+      operationId: createStore
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Store'
+            example:
+              id: store-003
+              value: main
+              name: Uptown Pet Store
+              address: 456 Oak Ave, Boston, MA
+              franchise:
+                id: franchise-001
+      responses:
+        '200':
+          description: Store created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPostResponse'
+              example:
+                success: 'post call succeed!'
+                url: /admin/store
+                data: {}
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Admin - Stores
+      summary: Update a store
+      description: |
+        Updates an existing store record using DynamoDB PutItem (full replace).
+        Both `id` and `value` must be present in the body to identify the composite key.
+      operationId: updateStore
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Store'
+            example:
+              id: store-001
+              value: main
+              name: Downtown Pet Store Updated
+              address: 123 Main St, Manhattan, NYC 10001
+      responses:
+        '200':
+          description: Store updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessPutResponse'
+              example:
+                success: 'put call succeed!'
+                url: /admin/store
+                data: {}
+        '400':
+          description: Bad request — missing id/value or invalid payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Store not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/store/{storeId}:
+    get:
+      tags:
+        - Admin - Stores
+      summary: Query stores by partition key
+      description: |
+        Queries the petstoreTenants DynamoDB table for all records matching the given
+        `storeId` as partition key (QueryCommand). Because the table has a sort key
+        (`value`), this may return multiple records (e.g., different branches of the
+        same store id).
+      operationId: queryStoresById
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Store partition key (id) to query.
+          schema:
+            type: string
+          example: store-001
+      responses:
+        '200':
+          description: Array of store records matching the partition key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreList'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/store/object/{storeId}/{value}:
+    get:
+      tags:
+        - Admin - Stores
+      summary: Get a specific store by composite key (GetItem)
+      description: |
+        Retrieves a single store record from petstoreTenants using DynamoDB GetItem
+        with both `id` (partition key) and `value` (sort key).
+        This is the precise single-record lookup.
+      operationId: getStore
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Store partition key (id).
+          schema:
+            type: string
+          example: store-001
+        - name: value
+          in: path
+          required: true
+          description: Store sort key.
+          schema:
+            type: string
+          example: main
+      responses:
+        '200':
+          description: Store record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Store not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Admin - Stores
+      summary: Delete a store
+      description: |
+        Permanently deletes a store record from petstoreTenants using DynamoDB DeleteItem
+        with both `id` (partition key) and `value` (sort key).
+      operationId: deleteStore
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Store partition key (id) to delete.
+          schema:
+            type: string
+          example: store-001
+        - name: value
+          in: path
+          required: true
+          description: Store sort key to delete.
+          schema:
+            type: string
+          example: main
+      responses:
+        '200':
+          description: Store deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+              example:
+                url: /admin/store/object/store-001/main
+                data: {}
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Store not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ────────────────────────────────────────────────────────────────
+  # STORE OPERATIONS — PETS
+  # Lambda: petstoresample78b39c63
+  # AVP Actions: SearchPets, AddPet, UpdatePet
+  # Security: BearerAuth (Cognito JWT verified by petstoreAuthorizer)
+  # ────────────────────────────────────────────────────────────────
+
+  /store/{storeId}/pets:
+    get:
+      tags:
+        - Store Operations - Pets
+      summary: List pets in a store
+      description: |
+        Retrieves a list of pets available in the specified store.
+        AVP action: **SearchPets** on resource `MyApplication::Store`.
+        The authorizer checks that the user is authorized to search pets in the given store
+        based on their Cognito group membership and employment store codes.
+      operationId: searchPets
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store to search pets in.
+          schema:
+            type: string
+          example: store-001
+        - name: status
+          in: query
+          required: false
+          description: Filter pets by availability status.
+          schema:
+            type: string
+            enum:
+              - available
+              - pending
+              - sold
+        - name: species
+          in: query
+          required: false
+          description: Filter pets by species.
+          schema:
+            type: string
+            enum:
+              - Dog
+              - Cat
+              - Bird
+              - Fish
+              - Rabbit
+              - Other
+      responses:
+        '200':
+          description: List of pets in the store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PetList'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — invalid/expired token or AVP DENY decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{storeId}/pet/create:
+    post:
+      tags:
+        - Store Operations - Pets
+      summary: Add a new pet to the store
+      description: |
+        Adds a new pet to the specified store's inventory.
+        AVP action: **AddPet** on resource `MyApplication::Store`.
+      operationId: addPet
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store to add the pet to.
+          schema:
+            type: string
+          example: store-001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+            example:
+              name: Buddy
+              species: Dog
+              breed: Golden Retriever
+              age: 12
+              price: 500.00
+              status: available
+              description: Friendly and energetic golden retriever puppy.
+      responses:
+        '200':
+          description: Pet added successfully. Response contains the AVP authorization result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationResponse'
+        '400':
+          description: Bad request — invalid pet payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — unauthorized to add pets to this store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{storeId}/pet/get/{petId}:
+    get:
+      tags:
+        - Store Operations - Pets
+      summary: Get a specific pet
+      description: |
+        Retrieves detailed information for a specific pet in the specified store.
+        No explicit AVP action is mapped for this operation in the authorizer actionMap;
+        access may fall through to a default application-level authorization check.
+      operationId: getPet
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store.
+          schema:
+            type: string
+          example: store-001
+        - name: petId
+          in: path
+          required: true
+          description: Identifier of the pet to retrieve.
+          schema:
+            type: string
+          example: pet-001
+      responses:
+        '200':
+          description: Pet details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pet not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{storeId}/pet/update/{petId}:
+    post:
+      tags:
+        - Store Operations - Pets
+      summary: Update a pet in the store
+      description: |
+        Updates an existing pet's information in the specified store.
+        AVP action: **UpdatePet** on resource `MyApplication::Pet`.
+        The authorizer checks that the pet belongs to the store referenced in the token.
+
+        **Method note:** This operation uses **HTTP POST** — not PUT — as defined in the
+        Lambda authorizer `actionMap`. This diverges from REST conventions and from the
+        IaaS monolith (which exposes this as PUT).
+      operationId: updatePet
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store.
+          schema:
+            type: string
+          example: store-001
+        - name: petId
+          in: path
+          required: true
+          description: Identifier of the pet to update.
+          schema:
+            type: string
+          example: pet-001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+            example:
+              name: Buddy Updated
+              price: 550.00
+              status: available
+              description: Well-trained and friendly golden retriever.
+      responses:
+        '200':
+          description: Pet updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationResponse'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — not authorized to update this pet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pet not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ────────────────────────────────────────────────────────────────
+  # STORE OPERATIONS — ORDERS
+  # Lambda: petstoresample78b39c63
+  # AVP Actions: PlaceOrder, GetOrder, CancelOrder, ListOrders
+  # Security: BearerAuth (Cognito JWT)
+  # ────────────────────────────────────────────────────────────────
+
+  /store/{storeId}/orders:
+    get:
+      tags:
+        - Store Operations - Orders
+      summary: List orders in a store
+      description: |
+        Retrieves a list of orders placed in the specified store.
+        AVP action: **ListOrders** on resource `MyApplication::Store`.
+      operationId: listOrders
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store.
+          schema:
+            type: string
+          example: store-001
+        - name: status
+          in: query
+          required: false
+          description: Filter orders by status.
+          schema:
+            type: string
+            enum:
+              - placed
+              - approved
+              - delivered
+              - cancelled
+      responses:
+        '200':
+          description: List of orders in the store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderList'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{storeId}/order/create:
+    post:
+      tags:
+        - Store Operations - Orders
+      summary: Place a new order
+      description: |
+        Places a new pet purchase order in the specified store.
+        AVP action: **PlaceOrder** on resource `MyApplication::Store`.
+      operationId: placeOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store.
+          schema:
+            type: string
+          example: store-001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+            example:
+              petId: pet-001
+              quantity: 1
+              customerId: user-john-001
+      responses:
+        '200':
+          description: Order placed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationResponse'
+        '400':
+          description: Bad request — invalid order payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{storeId}/order/get/{orderNumber}:
+    get:
+      tags:
+        - Store Operations - Orders
+      summary: Get a specific order
+      description: |
+        Retrieves detailed information for a specific order in the specified store.
+        AVP action: **GetOrder** on resource `MyApplication::Order`.
+        Authorization checks the order's `owner` attribute against the requesting user.
+      operationId: getOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store.
+          schema:
+            type: string
+          example: store-001
+        - name: orderNumber
+          in: path
+          required: true
+          description: Unique order number.
+          schema:
+            type: string
+          example: order-001
+      responses:
+        '200':
+          description: Order details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '403':
+          description: Forbidden — not the order owner or invalid token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /store/{storeId}/order/cancel/{orderNumber}:
+    post:
+      tags:
+        - Store Operations - Orders
+      summary: Cancel an order
+      description: |
+        Cancels an existing order in the specified store.
+        AVP action: **CancelOrder** on resource `MyApplication::Order`.
+        Authorization checks the order's `owner` attribute against the requesting user.
+
+        **Method note:** This operation uses **HTTP POST** — not DELETE — as defined in
+        the Lambda authorizer `actionMap`. This diverges from REST conventions and from
+        the IaaS monolith (which exposes this as DELETE).
+      operationId: cancelOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store.
+          schema:
+            type: string
+          example: store-001
+        - name: orderNumber
+          in: path
+          required: true
+          description: Order number to cancel.
+          schema:
+            type: string
+          example: order-001
+      responses:
+        '200':
+          description: Order cancelled successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationResponse'
+        '400':
+          description: Bad request — order cannot be cancelled in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — not the order owner or unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ────────────────────────────────────────────────────────────────
+  # STORE OPERATIONS — INVENTORY
+  # Lambda: petstoresample78b39c63
+  # AVP Action: GetStoreInventory on MyApplication::Store
+  # Security: BearerAuth (Cognito JWT)
+  # ────────────────────────────────────────────────────────────────
+
+  /store/{storeId}/inventory:
+    get:
+      tags:
+        - Store Operations - Inventory
+      summary: Get store inventory
+      description: |
+        Retrieves the inventory summary for the specified store, including pet availability
+        statistics and order counts.
+        AVP action: **GetStoreInventory** on resource `MyApplication::Store`.
+      operationId: getStoreInventory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          description: Identifier of the store.
+          schema:
+            type: string
+          example: store-001
+      responses:
+        '200':
+          description: Store inventory summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+              example:
+                storeId: store-001
+                totalPets: 25
+                availablePets: 20
+                pendingPets: 3
+                soldPets: 2
+                totalOrders: 15
+        '403':
+          description: Forbidden.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Store not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

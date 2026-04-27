@@ -1,0 +1,286 @@
+================================================================================
+PHASE 1 - API DISCOVERY EXECUTION REPORT
+FaaS-to-IaaS Migration Framework
+================================================================================
+Date       : 2026-04-27
+Prompt     : prompts/phase1-api-discovery/generate-openapi.txt
+Output     : docs/output/openapi.yaml
+Executor   : Claude Sonnet 4.6 (claude-sonnet-4-6)
+Branch     : feature/monolith-deployment-scripts
+--------------------------------------------------------------------------------
+
+## 1. SCOPE AND OBJECTIVES
+
+Analyze the FaaS application source code located in src/faas-app/ (git submodule
+pointing to https://github.com/vifor/avp-petstore-sample-v2.git) and produce an
+OpenAPI 3.0 specification covering all discoverable API endpoints, their HTTP
+methods, path parameters, request/response schemas, and security requirements.
+
+## 2. SOURCE FILES ANALYZED
+
+The following files were read and analyzed (in discovery order):
+
+  src/faas-app/amplify/backend/api/petstoreapi/cli-inputs.json
+    → Authoritative API Gateway path registration (13 paths mapped to Lambdas)
+
+  src/faas-app/amplify/backend/backend-config.json
+    → Full dependency graph: 4 Lambda functions, 2 DynamoDB tables, Cognito
+      User Pool, AVP Policy Store, API Gateway, SSM Parameter Store
+
+  src/faas-app/amplify/backend/function/petstoreAdminStoreCrud/src/app.js
+    → Express.js routes for /admin/store namespace
+    → DynamoDB table: petstoreTenants (PK: id, SK: value)
+
+  src/faas-app/amplify/backend/function/petstoreAdminFranchiseCrud/src/app.js
+    → Express.js routes for /admin/franchise namespace
+    → DynamoDB table: petstoreFranchise (PK: id, no sort key)
+
+  src/faas-app/amplify/backend/function/petstoresample78b39c63/src/index.js
+    → Store-operations Lambda: AVP authorization enforcer + actionMap
+    → Source of truth for HTTP methods on /store/{storeId}/... paths
+
+  src/faas-app/amplify/backend/function/petstoreAuthorizer/src/index.js
+    → API Gateway Lambda Authorizer: Cognito JWT verification + AVP query
+    → Entity construction and principal enrichment logic
+
+  src/faas-app/amplify/backend/custom/petstoreAVPPolicyStore/assets/policySchema.json
+    → Amazon Verified Permissions Cedar schema
+    → Used to infer entity attributes for Pet, Order, Store, Franchise, User
+
+  src/faas-app/amplify/backend/storage/petstoreTenants/cli-inputs.json
+    → Confirms table structure: PK id (String), SK value (String)
+
+  src/faas-app/amplify/backend/storage/petstoreFranchise/cli-inputs.json
+    → Confirms table structure: PK id (String), no sort key
+
+## 3. ENDPOINTS DISCOVERED
+
+### 3.1 Store Operations (Lambda: petstoresample78b39c63)
+
+All paths require both ApiKeyAuth (x-api-key header) and BearerAuth (Cognito JWT).
+Authorization is enforced by AVP on every request via the petstoreAuthorizer Lambda.
+
+  [GET]  /store/{storeId}/pets
+         Action: SearchPets | Resource type: Store
+         Response: PetList array
+
+  [POST] /store/{storeId}/pet/create
+         Action: AddPet | Resource type: Application
+         Body: Pet object (partial, owner/store inferred at runtime)
+
+  [POST] /store/{storeId}/pet/update/{petId}
+         Action: UpdatePet | Resource type: Pet
+         *** NOTE: HTTP method is POST, not PUT ***
+         Body: Pet object (partial update)
+
+  [GET]  /store/{storeId}/order/get/{orderNumber}
+         Action: GetOrder | Resource type: Order
+
+  [POST] /store/{storeId}/order/create
+         Action: PlaceOrder | Resource type: Store
+         Body: Order object
+
+  [POST] /store/{storeId}/order/cancel/{orderNumber}
+         Action: CancelOrder | Resource type: Order
+         *** NOTE: HTTP method is POST, not DELETE ***
+
+  [GET]  /store/{storeId}/orders
+         Action: ListOrders | Resource type: Store
+         Response: OrderList array
+
+  [GET]  /store/{storeId}/inventory
+         Action: GetStoreInventory | Resource type: Store
+         Response: Inventory object
+
+### 3.2 Admin Store Operations (Lambda: petstoreAdminStoreCrud)
+
+  [GET]    /admin/store/{id}
+           DynamoDB QueryCommand on petstoreTenants (PK = id)
+           Returns all items with matching partition key
+
+  [GET]    /admin/store/object/{id}/{value}
+           DynamoDB GetItem on petstoreTenants (PK = id, SK = value)
+           Returns single item
+
+  [POST]   /admin/store
+           DynamoDB PutItem — CREATE semantics
+           Body: Store object
+
+  [PUT]    /admin/store
+           DynamoDB PutItem — UPDATE semantics (overwrite)
+           Body: Store object
+
+  [DELETE] /admin/store/object/{id}/{value}
+           DynamoDB DeleteItem on petstoreTenants (PK = id, SK = value)
+
+  [GAP]    GET /admin/store (list-all) is registered in API Gateway
+           cli-inputs.json but NO Express handler exists in app.js.
+           → Documented as a known implementation gap in the spec.
+
+### 3.3 Admin Franchise Operations (Lambda: petstoreAdminFranchiseCrud)
+
+  [GET]    /admin/franchise/{id}
+           DynamoDB QueryCommand on petstoreFranchise (PK = id)
+
+  [GET]    /admin/franchise/object/{id}
+           DynamoDB GetItem on petstoreFranchise (PK = id)
+
+  [POST]   /admin/franchise
+           DynamoDB PutItem — CREATE semantics
+           Body: Franchise object
+
+  [PUT]    /admin/franchise
+           DynamoDB PutItem — UPDATE semantics (overwrite)
+           Body: Franchise object
+
+  [DELETE] /admin/franchise/object/{id}
+           DynamoDB DeleteItem on petstoreFranchise (PK = id)
+
+  [GAP]    GET /admin/franchise (list-all) is registered in API Gateway
+           cli-inputs.json but NO Express handler exists in app.js.
+           → Documented as a known implementation gap in the spec.
+
+## 4. SCHEMAS INFERRED
+
+The FaaS store Lambda (petstoresample78b39c63) acts as a pure authorization
+proxy — it delegates business logic to a downstream service and does not expose
+the data model directly in its code. Schemas were inferred from two sources:
+
+  a) AVP Cedar policy schema (policySchema.json):
+     Defines entity types with typed attributes:
+       - User: employmentStoreCodes (Set<Store>), employmentStoreFranchiseCodes (Set<StoreFranchise>)
+       - Store: geo (String), memberOf StoreFranchise
+       - StoreFranchise: stores (Set<Store>), name (String)
+       - Pet: owner (User entity), store (Store entity)
+       - Order: owner (User entity), store (Store entity)
+       - Application: store (Store entity)
+
+  b) DynamoDB table structures (cli-inputs.json files):
+     petstoreTenants: PK id (String), SK value (String)  → Store model
+     petstoreFranchise: PK id (String)                   → Franchise model
+
+  LIMITATION: Pet and Order request/response bodies could not be fully inferred
+  from static analysis. The downstream API that the store Lambda proxies to is
+  not part of this repository. Schema definitions for Pet and Order in the
+  generated spec are marked as best-effort approximations.
+
+## 5. SECURITY MODEL DOCUMENTED
+
+  Authentication:
+    - Cognito User Pool JWT (id token) — validated in petstoreAuthorizer Lambda
+    - API Key (x-api-key header) — validated by API Gateway
+
+  Authorization:
+    - Amazon Verified Permissions (Cedar ABAC) — every store operation request
+      is evaluated against the policy store before execution
+    - Entities passed to AVP: User (principal), Store/Franchise (resource context),
+      Pet/Order (resource), Cognito Groups (principal parents)
+    - SSM Parameter Store used for runtime retrieval of ApiKey and ApiRootUrl
+
+  JWT claims used:
+    - cognito:username → principal entityId
+    - cognito:groups → Group membership
+    - custom:franchiseCode → comma-separated StoreFranchise IDs
+    - custom:employmentStoreCode → comma-separated Store IDs
+
+## 6. GAPS AND ANOMALIES IDENTIFIED
+
+  GAP-001: No GET /admin/store handler (list-all)
+    API Gateway path registered in cli-inputs.json but no Express route handler
+    exists in petstoreAdminStoreCrud/src/app.js.
+    Impact: Route would return 404 or fall through to catch-all handler.
+
+  GAP-002: No GET /admin/franchise handler (list-all)
+    Same issue as GAP-001 for the franchise CRUD Lambda.
+
+  GAP-003: HTTP method divergence — pet update uses POST
+    /store/{storeId}/pet/update/{petId} is registered as POST in API Gateway
+    and in the actionMap. RESTful convention would use PUT or PATCH.
+    Impact: IaaS monolith uses PUT — this is a behavioral contract difference.
+
+  GAP-004: HTTP method divergence — order cancel uses POST
+    /store/{storeId}/order/cancel/{orderNumber} uses POST not DELETE.
+    Impact: IaaS monolith uses DELETE — same behavioral contract difference.
+
+  GAP-005: Pet and Order schemas are approximate
+    The downstream service backing store operations is external to this repo.
+    Full request/response payloads could not be verified from static analysis.
+
+  GAP-006: No delete endpoint for Pet entity
+    The actionMap references "DeletePet" in addResourceEntities() and
+    buildResource() but no corresponding API Gateway path is registered in
+    cli-inputs.json. The action exists in the authorization model but the
+    route is unregistered.
+
+  GAP-007: Admin paths have no AVP authorization
+    Admin CRUD Lambdas (Store, Franchise) do not reference the AVP authorizer.
+    These paths appear to rely solely on API key validation. This may be
+    intentional (internal admin only) but is a security posture difference
+    from the store operation paths.
+
+## 7. OUTPUT ARTIFACTS
+
+  docs/output/openapi.yaml
+    Format    : OpenAPI 3.0.3
+    Size      : ~700 lines YAML
+    Endpoints : 19 path operations across 5 tag groups
+    Schemas   : 14 component schemas
+    Security  : ApiKeyAuth + BearerAuth defined and applied per operation
+    Server    : AWS API Gateway URL template with apiId/region/stage variables
+                (defaults: 5brhnloiod / sa-east-1 / main)
+
+## 8. DECISIONS AND RATIONALE
+
+  D1: Spec represents FaaS as-is (source of truth)
+      HTTP methods documented exactly as implemented in the Lambda actionMap
+      and API Gateway registration, even where they diverge from REST convention.
+      Rationale: The spec must describe the current system, not an idealized one.
+      Migration decisions about method normalization belong in Phase 3+.
+
+  D2: List-all gaps documented, not filled
+      Missing GET /admin/store and GET /admin/franchise handlers are flagged
+      as gaps in the spec rather than silently adding placeholder operations.
+      Rationale: Adding undocumented/unimplemented paths would misrepresent the
+      current FaaS contract.
+
+  D3: Pet/Order schemas marked as approximate
+      Rather than omitting schemas entirely, approximate definitions were
+      provided based on AVP entity attributes, with explicit documentation
+      of the inference source and limitation.
+      Rationale: Partial schema is more useful than no schema for migration
+      planning. Gaps are clearly flagged.
+
+  D4: Admin paths given x-api-key only security
+      Store operation paths apply both ApiKeyAuth and BearerAuth.
+      Admin paths apply only ApiKeyAuth (matches observed Lambda code).
+
+## 9. REPRODUCTION STEPS
+
+To regenerate docs/output/openapi.yaml from scratch:
+  1. Ensure src/faas-app submodule is initialized and checked out
+     git submodule update --init --recursive
+  2. Submit the prompt at prompts/phase1-api-discovery/generate-openapi.txt
+     to an LLM with access to this repository
+  3. Verify output against this log for completeness
+
+## 10. NEXT RECOMMENDED STEPS
+
+  Phase 2 — IaaS Contract Analysis
+    Analyze NestJS monolith (src/monolith-app/) to produce equivalent OpenAPI
+    spec, then diff against docs/output/openapi.yaml to identify migration gaps.
+
+  Phase 3 — Contract Reconciliation
+    For each divergence identified (HTTP methods, path structures, schemas),
+    define migration strategy: adapt IaaS to match FaaS contract, or update
+    clients to use new IaaS contract.
+
+  Address GAP-003 and GAP-004 (method divergence):
+    Decide whether IaaS should accept POST for update/cancel to maintain
+    backward compatibility, or whether clients will be updated.
+
+  Address GAP-006 (DeletePet unregistered):
+    Determine if DeletePet should be implemented and registered in IaaS.
+
+================================================================================
+END OF REPORT
+================================================================================
