@@ -1,0 +1,459 @@
+================================================================================
+PHASE 2 EXECUTION REPORT: DATABASE DISCOVERY
+FaaS to IaaS Migration Framework
+Generated: April 28, 2026
+================================================================================
+
+PHASE OBJECTIVE
+---------------
+Document the database layer of the FaaS application by analyzing IaC configuration
+files and Lambda function code to extract table schemas, key structures, and
+attributes. Produce a migration scope recommendation (single-phase vs two-phase)
+with technical justification.
+
+EXECUTION STATUS: ✓ COMPLETED SUCCESSFULLY
+
+================================================================================
+ANALYSIS METHODOLOGY
+================================================================================
+
+The database discovery was performed through a systematic analysis of:
+
+1. INFRASTRUCTURE AS CODE (IaC) ANALYSIS
+   Location: src/faas-app/amplify/backend/storage/
+   Files Analyzed:
+   - petstoreFranchise/cli-inputs.json
+   - petstoreTenants/cli-inputs.json
+   
+   Data Extracted:
+   - Table names
+   - Partition key definitions
+   - Sort key definitions
+   - GSI configurations (none found)
+   - Trigger function configurations
+
+2. LAMBDA FUNCTION CODE ANALYSIS
+   Location: src/faas-app/amplify/backend/function/
+   Functions Analyzed:
+   - petstoreAdminFranchiseCrud/src/app.js
+   - petstoreAdminStoreCrud/src/app.js
+   - petstoresample78b39c63/src/index.js
+   - petstoreAuthorizer/src/index.js
+   
+   Data Extracted:
+   - DynamoDB operations used (GetCommand, PutCommand, QueryCommand, DeleteCommand)
+   - Attribute inference from req.body processing
+   - Table name references and environment variable usage
+   - Key schema validation logic
+
+3. SUPPLEMENTARY SOURCES
+   - docs/output/openapi.yaml (Phase 1 output) — API schema and entity definitions
+   - src/faas-app/amplify/backend/custom/petstoreAVPPolicyStore/assets/policySchema.json
+     — AVP entity type definitions and relationships
+   - src/monolith-app/src/domain/entities/*.entity.ts — IaaS target schema comparison
+
+4. CROSS-REFERENCE VALIDATION
+   - Validated table names from IaC against Lambda code references
+   - Cross-referenced attribute names from OpenAPI spec with AVP policy schema
+   - Compared FaaS schema with IaaS target entities to identify gaps
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+FINDING 1: MINIMAL DATABASE FOOTPRINT
+--------------------------------------
+The FaaS application uses only 2 DynamoDB tables:
+- petstoreFranchise (Franchise metadata)
+- petstoreTenants (Store metadata)
+
+No additional tables for:
+- Pet inventory
+- Order management
+- User/authentication (delegated to Cognito)
+
+IMPLICATION: The FaaS implementation is a minimal viable product (MVP) focused
+on administrative metadata management, not a complete pet store system.
+
+
+FINDING 2: PET AND ORDER ENTITIES MISSING
+------------------------------------------
+Despite the OpenAPI spec defining Pet and Order entities with detailed schemas,
+these entities have NO corresponding DynamoDB tables.
+
+Evidence:
+- No cli-inputs.json files for Pet or Order storage resources
+- petstoresample78b39c63 Lambda only performs AVP authorization checks
+- AVP policySchema.json defines Pet and Order as entity types with attributes
+  (owner, store references) but these are authorization metadata, not persistent data
+- The Lambda hardcodes order owner to "abhi" for demonstration purposes
+
+IMPLICATION: 50% of the target IaaS schema has no source data to migrate.
+Pet and Order features must be developed as greenfield work, not migrated.
+
+
+FINDING 3: KEY SCHEMA ANOMALY IN petstoreTenants
+-------------------------------------------------
+The petstoreTenants table uses a composite key:
+- Partition Key: id (String)
+- Sort Key: value (String)
+
+The "value" sort key's business purpose is unclear:
+- Not documented in OpenAPI spec
+- No validation logic in Lambda code
+- Not used in AVP policy schema
+- The IaaS target Store entity includes "value" as a field (possibly for 
+  store type: "main", "branch", "outlet") but its usage is ambiguous
+
+IMPLICATION: This design may be a legacy artifact. Migration should evaluate
+whether the sort key is necessary or can be flattened to a single partition key.
+
+
+FINDING 4: NO GLOBAL SECONDARY INDEXES
+---------------------------------------
+Neither table defines any GSIs. All queries use partition key or composite key
+(partition + sort key) access patterns.
+
+Query Patterns Observed:
+- Franchise: Query by id (partition key)
+- Store: Query by id (partition key), optionally filtered by value (sort key)
+
+IMPLICATION: No complex access patterns to replicate. Data migration is
+straightforward (no index rebuild required).
+
+
+FINDING 5: DYNAMIC SCHEMA (NO VALIDATION)
+------------------------------------------
+Both Lambda functions accept arbitrary JSON in POST/PUT requests:
+```javascript
+let putItemParams = {
+  TableName: tableName,
+  Item: req.body  // No validation, no schema enforcement
+}
+```
+
+IMPLICATION:
+- Production data may contain unexpected or inconsistent attributes
+- Data migration must handle schema variations and clean dirty data
+- IaaS implementation should add schema validation (DTO classes, TypeORM entities)
+
+
+FINDING 6: DATA RELATIONSHIP PATTERNS
+--------------------------------------
+Denormalized Design (DynamoDB pattern):
+- Franchise.stores: Array of store IDs (embedded list)
+- Store.franchise: Nested object with { id: "franchise-001" }
+
+AVP Relationship Model:
+- Store is a memberOf StoreFranchise (hierarchical relationship)
+- User has employmentStoreCodes and employmentStoreFranchiseCodes (Set<Entity>)
+
+IMPLICATION: Data migration requires transformation logic to normalize these
+relationships into foreign key references for the IaaS relational model.
+
+
+FINDING 7: NO AUDIT TRAILS
+---------------------------
+The DynamoDB tables do NOT include audit timestamp attributes (createdAt, updatedAt)
+in the IaC configuration or Lambda code.
+
+The IaaS target entities define audit fields:
+```typescript
+public readonly createdAt: Date;
+public updatedAt: Date;
+```
+
+IMPLICATION: Data migration must synthesize reasonable defaults for audit
+timestamps (e.g., use current time or earliest available log timestamp).
+
+
+FINDING 8: COGNITO-DRIVEN AUTHORIZATION
+----------------------------------------
+User and Group entities exist only in the AVP authorization model. User identity
+and attributes are derived from Cognito JWT claims at runtime:
+- cognito:username → User.entityId
+- cognito:groups → User.parents (Group membership)
+- custom:franchiseCode → User.employmentStoreFranchiseCodes
+- custom:employmentStoreCode → User.employmentStoreCodes
+
+IMPLICATION: The IaaS migration must either maintain Cognito integration or
+implement a new user/role management system. User data migration is NOT
+applicable (no DynamoDB tables exist).
+
+
+================================================================================
+DATABASE SCHEMA DOCUMENTATION
+================================================================================
+
+Complete schema documentation with table structures, key definitions, attributes,
+and DynamoDB operations has been generated and saved to:
+
+    docs/output/data-base-definition.txt
+
+This document includes:
+- Detailed table schemas for petstoreFranchise and petstoreTenants
+- Attribute definitions with types and sources (IaC, code, OpenAPI, AVP)
+- DynamoDB operation patterns (GetCommand, QueryCommand, PutCommand, DeleteCommand)
+- Analysis of missing tables (Pet, Order) and their expected schemas
+- Data relationship patterns and foreign key implications
+- Schema evolution recommendations for IaaS migration
+
+
+================================================================================
+MIGRATION SCOPE RECOMMENDATION
+================================================================================
+
+RECOMMENDATION: TWO-PHASE MIGRATION (Backend First, Data Deferred)
+
+Key Rationale:
+1. INCOMPLETE SOURCE: Only 2 of 4 target tables have source data (50% greenfield)
+2. LOW COMPLEXITY: 2 simple tables, no GSIs, minimal attributes
+3. RISK REDUCTION: Decouple backend validation (synthetic data) from data migration
+4. NO TIME SAVINGS: Single-phase offers no meaningful schedule compression
+5. CLEAR ROLLBACK: Two-phase provides clean rollback points at each phase boundary
+
+Phase Breakdown:
+- Phase 1 (2-4 weeks): Migrate backend code, validate with synthetic data
+- Phase 2 (1-2 weeks): Migrate Franchise & Store data with transformation
+- Phase 3 (4-8 weeks): Develop Pet & Order features (greenfield, out of scope)
+
+Total Migration Timeline: 3-6 weeks (excluding Phase 3 greenfield work)
+Risk Level: LOW
+
+Detailed justification with technical analysis has been saved to:
+    docs/output/data-base-definition.txt
+    (See "MIGRATION SCOPE RECOMMENDATION" section)
+
+
+================================================================================
+ARTIFACTS GENERATED
+================================================================================
+
+1. docs/output/data-base-definition.txt
+   - Complete database schema documentation
+   - Table structures and attribute definitions
+   - Data relationship analysis
+   - Schema evolution recommendations
+   - Migration scope recommendation with detailed justification
+   Size: ~30 KB
+   Format: Plain text
+
+2. docs/log/phase2.report (this file)
+   - Execution summary
+   - Analysis methodology
+   - Key findings
+   - Deliverable confirmation
+   Size: ~15 KB
+   Format: Plain text
+
+
+================================================================================
+PHASE DELIVERABLES CHECKLIST
+================================================================================
+
+[✓] Analyzed IaC configuration files (cli-inputs.json)
+[✓] Analyzed Lambda function code for DynamoDB operations
+[✓] Extracted table names, primary keys, sort keys, and GSIs
+[✓] Inferred non-key attributes from code and OpenAPI spec
+[✓] Documented each table with schema details
+[✓] Analyzed missing entities (Pet, Order) and their implications
+[✓] Produced migration scope recommendation (two-phase)
+[✓] Provided technical justification for recommendation
+[✓] Saved schema documentation to docs/output/data-base-definition.txt
+[✓] Saved execution report to docs/log/phase2.report
+
+
+================================================================================
+RECOMMENDATIONS FOR PHASE 3 (API MIGRATION)
+================================================================================
+
+Based on the database discovery findings, the following considerations should
+inform Phase 3 (API Migration) planning:
+
+1. PRIORITIZE FRANCHISE & STORE ADMIN CRUD
+   These are the only fully implemented features in the FaaS application.
+   Migration effort: LOW (straightforward CRUD with Express.js patterns)
+
+2. DEFER PET & ORDER API MIGRATION
+   These endpoints exist in the FaaS OpenAPI spec but have no implementation
+   (authorization wrapper only). Treat as greenfield development, not migration.
+
+3. AUTHORIZATION REFACTORING
+   The AVP (Amazon Verified Permissions) integration is the core complexity.
+   Options for IaaS:
+   a) Maintain AVP integration (requires AWS SDK and policy store management)
+   b) Implement application-level RBAC using frameworks (e.g., CASL, Casbin)
+   c) Use IaaS framework guards/decorators (e.g., NestJS guards with Passport.js)
+   
+   Recommendation: Evaluate authorization requirements and select appropriate
+   framework BEFORE starting Phase 3 backend migration.
+
+4. DATA ACCESS LAYER ABSTRACTION
+   The Lambda functions directly call DynamoDB SDK commands. The IaaS target
+   should use a repository pattern or ORM (e.g., TypeORM, Prisma) to:
+   - Abstract data access (enable future database switching)
+   - Enforce schema validation (DTOs, entity classes)
+   - Support transactions (not available in FaaS DynamoDB operations)
+
+5. TEST DATA REQUIREMENTS
+   Create realistic test data sets for:
+   - Franchise entities (10-20 records)
+   - Store entities (50-100 records with franchise associations)
+   - Pet entities (200-500 records, NEW data)
+   - Order entities (100-200 records, NEW data)
+   
+   Use synthetic data for Phases 1-2, migrate production Franchise/Store data
+   only after validation.
+
+
+================================================================================
+RISKS & MITIGATION STRATEGIES
+================================================================================
+
+RISK 1: DYNAMIC SCHEMA INCONSISTENCIES
+Description: Production Franchise/Store data may contain unexpected attributes
+due to lack of validation in Lambda functions.
+Impact: MEDIUM — Data migration scripts may fail on unexpected data shapes
+Mitigation:
+- Perform exploratory data analysis (EDA) on production DynamoDB snapshots
+- Implement data cleaning logic in migration scripts
+- Create schema validation reports before final migration
+
+RISK 2: REFERENTIAL INTEGRITY VIOLATIONS
+Description: Franchise.stores array may reference non-existent store IDs.
+Store.franchise.id may reference non-existent franchise IDs.
+Impact: MEDIUM — Broken relationships after data migration
+Mitigation:
+- Validate all foreign key references during migration
+- Generate orphan record reports
+- Decide on handling strategy: discard, create placeholders, or manual review
+
+RISK 3: COGNITO INTEGRATION CHANGES
+Description: IaaS implementation may change authentication system, breaking
+existing user workflows.
+Impact: HIGH — Existing users cannot log in
+Mitigation:
+- Maintain Cognito integration in IaaS MVP
+- If replacing Cognito, implement user migration and credential reset workflows
+- Test authorization logic with production JWT tokens
+
+RISK 4: AVP POLICY MIGRATION
+Description: Cedar policy language rules may not translate directly to
+application-level RBAC.
+Impact: HIGH — Authorization bypasses or false denials
+Mitigation:
+- Extract all Cedar policies from AVP policy store
+- Create authorization test suite with all policy combinations
+- Validate that IaaS authorization produces identical ALLOW/DENY results
+
+RISK 5: MISSING BUSINESS LOGIC
+Description: 50% of features (Pet, Order management) have no source implementation.
+Impact: LOW for migration, HIGH for greenfield development
+Mitigation:
+- Acknowledge this is NEW FEATURE DEVELOPMENT, not migration
+- Allocate separate project timeline and resources
+- Do not conflate migration effort with greenfield effort in project planning
+
+
+================================================================================
+SUCCESS CRITERIA VALIDATION
+================================================================================
+
+The following success criteria for Phase 2 have been validated:
+
+[✓] All DynamoDB tables identified and documented
+    Result: 2 tables (petstoreFranchise, petstoreTenants)
+
+[✓] Key schemas extracted (partition keys, sort keys, GSIs)
+    Result: Simple partition keys for Franchise, composite key for Store, 0 GSIs
+
+[✓] Attributes inferred from code analysis and supplementary sources
+    Result: Core attributes documented with sources (IaC, code, OpenAPI, AVP)
+
+[✓] Data relationships analyzed (foreign keys, denormalization patterns)
+    Result: Franchise↔Store relationships documented, transformation logic defined
+
+[✓] Missing entities identified and implications assessed
+    Result: Pet and Order entities missing (50% of target schema), greenfield work
+
+[✓] Migration scope recommendation produced with technical justification
+    Result: Two-phase migration recommended, detailed rationale provided
+
+[✓] Documentation artifacts generated and saved to specified locations
+    Result: data-base-definition.txt and phase2.report created
+
+
+================================================================================
+LESSONS LEARNED
+================================================================================
+
+1. SUPPLEMENTARY SOURCES ARE CRITICAL
+   IaC files alone provide insufficient detail for attribute inference. The
+   OpenAPI spec (Phase 1 output) and AVP policy schema were essential for
+   understanding data relationships and entity structures.
+
+2. "MIGRATION" MAY INCLUDE GREENFIELD WORK
+   This project demonstrates that not all target features exist in the source.
+   Migration frameworks must distinguish between:
+   - Pure migration (source → target transformation)
+   - Gap-filling (develop missing features in target)
+   - Greenfield (entirely new features with no source analog)
+
+3. AUTHORIZATION IS A FIRST-CLASS CONCERN
+   The FaaS application's core complexity is authorization (AVP), not data or
+   business logic. Migration planning must prioritize authorization architecture
+   decisions early.
+
+4. KEY SCHEMA DESIGN MATTERS
+   The petstoreTenants composite key (id + value) is a potential design flaw
+   that complicates queries and migration. Evaluate whether legacy key schemas
+   should be preserved or refactored during migration.
+
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. REVIEW PHASE 2 DELIVERABLES
+   - Stakeholder review of docs/output/data-base-definition.txt
+   - Validate migration scope recommendation (two-phase approach)
+   - Approve or request revisions
+
+2. AUTHORIZATION ARCHITECTURE DECISION
+   - Evaluate AVP vs application-level RBAC for IaaS target
+   - Select authorization framework (if not maintaining AVP)
+   - Document authorization rules extracted from Cedar policies
+
+3. PREPARE FOR PHASE 3 (API MIGRATION)
+   - Extract API Gateway route configurations
+   - Analyze Lambda handler logic for business rules
+   - Create synthetic test data for Franchise and Store entities
+   - Set up IaaS framework project structure (if not already done)
+
+4. OPTIONAL: EXPLORATORY DATA ANALYSIS (EDA)
+   - Request DynamoDB table snapshots from production environment
+   - Analyze actual data shapes and identify inconsistencies
+   - Estimate production data volume (row counts, storage size)
+   - Generate sample data reports for migration planning
+
+
+================================================================================
+CONCLUSION
+================================================================================
+
+Phase 2 (Database Discovery) has successfully documented the FaaS application's
+minimal database layer (2 DynamoDB tables) and identified critical gaps (Pet
+and Order entities missing). The analysis supports a TWO-PHASE MIGRATION
+recommendation with backend code migration preceding data migration.
+
+Key Insight: This is a hybrid project combining migration (Franchise/Store
+admin CRUD) and greenfield development (Pet/Order features). Project planning
+should allocate resources accordingly.
+
+The framework is now ready to proceed to Phase 3 (API Migration Planning).
+
+================================================================================
+PHASE 2 EXECUTION REPORT — END
+Generated: April 28, 2026
+Status: COMPLETED ✓
+================================================================================
