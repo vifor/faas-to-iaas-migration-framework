@@ -434,6 +434,7 @@ Include deployment scripts and documentation for IaaS deployment (EC2/ECS).
 - **Progress visibility**: Clear status and validation results for each step
 - **Knowledge transfer**: Complete documentation for team collaboration
 - **Migration audit trail**: Full record of decisions and implementations
+- **After all tasks are completed, create a phase summary report at docs/log/phase3.report referencing all individual task reports and summarizing key findings.
 
 ### **Version Control Standards**
 - **Incremental commits**: Each task completion results in a structured commit
