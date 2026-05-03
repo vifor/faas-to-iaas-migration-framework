@@ -19,14 +19,16 @@ services:
       PORT: 3000
       
       # Database Configuration
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      DYNAMODB_FRANCHISE_TABLE: ${DYNAMODB_FRANCHISE_TABLE:-petstoreFranchise}
-      DYNAMODB_STORE_TABLE: ${DYNAMODB_STORE_TABLE:-petstoreTenants}
-      
+      AWS_REGION: ${AWS_REGION:-sa-east-1}
+      TABLE_REGION: ${AWS_REGION:-sa-east-1}
+      # DynamoDBService derives table names from its built-in naming convention
+      # and the environment suffix, so direct table-name overrides are not exposed here.
+      ENV: ${ENV:-main}
+
       # Authentication Configuration
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
-      API_KEY: ${API_KEY}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
       
       # AWS Configuration
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
@@ -49,10 +51,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-      
-    depends_on:
-      - prometheus
-      - grafana
       
     # Resource limits for production (optimized for t3.small)
     deploy:

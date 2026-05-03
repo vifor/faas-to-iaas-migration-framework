@@ -6,11 +6,17 @@
 set -e
 
 # Configuration - Minimal cost options
-REGION=${AWS_REGION:-"us-east-1"}
+REGION=${AWS_REGION:-"sa-east-1"}
 KEY_PAIR_NAME=${KEY_PAIR_NAME:-"petstore-keypair"}
 SECURITY_GROUP_NAME=${SECURITY_GROUP_NAME:-"petstore-sg"}
-INSTANCE_TYPE=${INSTANCE_TYPE:-"t3.micro"}  # Ultra low cost: ~$7.5/month
-AMI_ID=${AMI_ID:-"ami-xxxxxxxxxxxxxxxxx"}  # Replace with your preferred AMI
+INSTANCE_TYPE=${INSTANCE_TYPE:-"t3.micro"}  # Ultra low cost: ~$10/month in sa-east-1
+# Auto-discover latest Amazon Linux 2023 AMI if not explicitly set
+AMI_ID=${AMI_ID:-$(aws ec2 describe-images \
+    --owners amazon \
+    --filters "Name=name,Values=al2023-ami-*" "Name=architecture,Values=x86_64" \
+    --region "$REGION" \
+    --query "sort_by(Images,&CreationDate)[-1].ImageId" \
+    --output text)}
 SUBNET_ID=${SUBNET_ID}
 VPC_ID=${VPC_ID}
 
@@ -109,25 +115,32 @@ usermod -a -G docker ec2-user
 
 # Clone the application repository
 cd /home/ec2-user
-git clone https://github.com/USER_PLACEHOLDER/REPO_PLACEHOLDER.git
+git clone https://github.com/vifor/faas-to-iaas-migration-framework.git
 cd faas-to-iaas-migration-framework/src/monolith-app
 
 # Create minimal environment file (no monitoring)
 cat > .env << 'ENVEOF'
 NODE_ENV=production
-AWS_REGION=${AWS_REGION:-us-east-1}
+AWS_REGION=${AWS_REGION:-sa-east-1}
+TABLE_REGION=${TABLE_REGION:-${AWS_REGION:-sa-east-1}}
+ENV=${ENV:-main}
 JWT_SECRET=${JWT_SECRET:-$(openssl rand -base64 32)}
-API_KEY=${API_KEY:-$(openssl rand -base64 24)}
-DYNAMODB_FRANCHISE_TABLE=${DYNAMODB_FRANCHISE_TABLE:-petstoreFranchise}
-DYNAMODB_STORE_TABLE=${DYNAMODB_STORE_TABLE:-petstoreTenants}
+ADMIN_API_KEY=${ADMIN_API_KEY:-$(openssl rand -hex 24)}
+# DynamoDBService derives table names from ENV (for example, petstoreFranchise${suffix}
+# and petstoreTenants${suffix}); FRANCHISE_TABLE_NAME and TENANTS_TABLE_NAME are not
+# consumed by the application and are intentionally not written here.
+DYNAMODB_ENDPOINT=
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 LOG_LEVEL=${LOG_LEVEL:-warn}
-METRICS_ENABLED=${METRICS_ENABLED:-false}
+METRICS_ENABLED=false
 ENVEOF
 
+# Do not print generated secrets to bootstrap logs
+echo "Generated application secrets and stored them in .env"
+
 # Start only the application (no monitoring stack)
-docker-compose up -d petstore-app
+docker-compose -f docker-compose.prod.yml up -d petstore-app
 
 echo "✅ PetStore minimal application deployed successfully!"
 EOF
