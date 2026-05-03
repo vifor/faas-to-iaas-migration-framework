@@ -139,20 +139,22 @@ TOKEN_PREVIEW="${ID_TOKEN:0:40}..."
 ok "JWT obtenido  →  ${TOKEN_LEN} chars  |  ${TOKEN_PREVIEW}"
 echo ""
 
-# ── 6. Ejecutar k6 smoke test ─────────────────────────────────────────────────
+# ── 6. Run k6 functional test ─────────────────────────────────────────────────
+# Points to functional-test.js which validates JWT auth end-to-end.
+# simple-smoke-test.js uses API Key auth and is covered by run-smoke-test-apikey.sh.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SMOKE_SCRIPT="$SCRIPT_DIR/simple-smoke-test.js"
+FUNCTIONAL_SCRIPT="$SCRIPT_DIR/../functional-testing/functional-test.js"
 
-if [[ ! -f "$SMOKE_SCRIPT" ]]; then
-  die "No se encontró el script: $SMOKE_SCRIPT"
+if [[ ! -f "$FUNCTIONAL_SCRIPT" ]]; then
+  die "Script not found: $FUNCTIONAL_SCRIPT"
 fi
 
-step "Ejecutando smoke test con k6..."
-echo "  Script        : $SMOKE_SCRIPT"
+step "Running functional test with k6..."
+echo "  Script        : $FUNCTIONAL_SCRIPT"
 echo "  FAAS_BASE_URL : $FAAS_BASE_URL"
 echo ""
 
 k6 run \
   -e "FAAS_BASE_URL=$FAAS_BASE_URL" \
   -e "TEST_JWT=$ID_TOKEN" \
-  "$SMOKE_SCRIPT"
+  "$FUNCTIONAL_SCRIPT"

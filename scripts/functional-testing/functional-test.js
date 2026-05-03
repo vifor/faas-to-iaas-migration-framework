@@ -12,6 +12,7 @@ import { check } from 'k6';
 import {
   BASE_URL,
   API_KEY,
+  TEST_JWT,
   COGNITO_ENDPOINT,
   COGNITO_CLIENT_ID,
   COGNITO_USERNAME,
@@ -53,10 +54,16 @@ function printResult(passed, method, path, res, extra = {}) {
 // ── setup() — obtiene JWT de Cognito una sola vez ─────────────────────────────
 
 export function setup() {
-  console.log('\n── Cognito authentication ───────────────────────────────────────');
+  console.log('\n── Authentication ───────────────────────────────────────────────');
+
+  // If a pre-obtained JWT is provided (e.g. from run-smoke-test.sh), use it directly.
+  if (TEST_JWT) {
+    console.log(`PASS  Using pre-obtained JWT (${TEST_JWT.length} chars)`);
+    return { idToken: TEST_JWT };
+  }
 
   if (!COGNITO_PASSWORD) {
-    console.error('FAIL  COGNITO_PASSWORD is required. Add -e COGNITO_PASSWORD=<password>');
+    console.error('FAIL  Either TEST_JWT or COGNITO_PASSWORD is required.');
     return { idToken: null };
   }
 

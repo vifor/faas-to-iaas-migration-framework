@@ -13,18 +13,20 @@
 //     -e COGNITO_PASSWORD=<password> \
 //     scripts/functional-testing/functional-test.js
 //
-// ── Variables de entorno disponibles ─────────────────────────────────────────
-//   BASE_URL             URL base de la API          (default: FaaS en AWS)
-//   API_KEY              x-api-key para /admin/*     (requerido)
-//   COGNITO_REGION       Región del User Pool         (default: sa-east-1)
-//   COGNITO_CLIENT_ID    App client ID de Cognito     (default: el del FaaS)
-//   COGNITO_USERNAME     Usuario de prueba            (default: vicky)
-//   COGNITO_PASSWORD     Contraseña del usuario       (requerido para /store/*)
+// ── Available environment variables ──────────────────────────────────────────
+//   BASE_URL             API base URL                 (default: FaaS on AWS)
+//   API_KEY              x-api-key for /admin/*       (required)
+//   TEST_JWT             Pre-obtained JWT token        (optional — skips Cognito auth in setup())
+//   COGNITO_REGION       User Pool region              (default: sa-east-1)
+//   COGNITO_CLIENT_ID    Cognito app client ID         (default: FaaS client)
+//   COGNITO_USERNAME     Test user username            (default: vicky)
+//   COGNITO_PASSWORD     Test user password            (required when TEST_JWT is not set)
 
 export const BASE_URL =
   __ENV.BASE_URL || 'https://5brhnloiod.execute-api.sa-east-1.amazonaws.com/main';
 
-export const API_KEY = __ENV.API_KEY || '';
+export const API_KEY  = __ENV.API_KEY  || '';
+export const TEST_JWT = __ENV.TEST_JWT || '';
 
 export const COGNITO_REGION   = __ENV.COGNITO_REGION   || 'sa-east-1';
 export const COGNITO_CLIENT_ID = __ENV.COGNITO_CLIENT_ID || '34uf0bee83j3ciq8sd7durq31k';
