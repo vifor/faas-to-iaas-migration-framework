@@ -126,8 +126,9 @@ TABLE_REGION=${AWS_REGION:-sa-east-1}
 ENV=${ENV:-main}
 JWT_SECRET=${JWT_SECRET:-$(openssl rand -base64 32)}
 ADMIN_API_KEY=${ADMIN_API_KEY:-$(openssl rand -hex 24)}
-FRANCHISE_TABLE_NAME=${FRANCHISE_TABLE_NAME:-petstoreFranchise}
-TENANTS_TABLE_NAME=${TENANTS_TABLE_NAME:-petstoreTenants}
+# DynamoDBService derives table names from ENV (for example, petstoreFranchise${suffix}
+# and petstoreTenants${suffix}); FRANCHISE_TABLE_NAME and TENANTS_TABLE_NAME are not
+# consumed by the application and are intentionally not written here.
 DYNAMODB_ENDPOINT=
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
