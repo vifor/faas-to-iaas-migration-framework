@@ -27,7 +27,7 @@ services:
 
       # Authentication Configuration
       JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
       ADMIN_API_KEY: ${ADMIN_API_KEY}
       
       # AWS Configuration
