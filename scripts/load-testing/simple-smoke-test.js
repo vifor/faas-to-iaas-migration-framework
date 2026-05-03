@@ -4,7 +4,8 @@ import { check, group, sleep } from 'k6';
 
 const config = {
   baseUrl: __ENV.FAAS_BASE_URL || __ENV.SMOKE_TEST_BASE_URL || 'https://example.com/api',
-  testJwt: __ENV.TEST_JWT || '',
+  apiKey: __ENV.TEST_API_KEY || '',
+  franchiseId: __ENV.TEST_FRANCHISE_ID || '',
 };
 
 function validateEnvironment() {
@@ -12,8 +13,11 @@ function validateEnvironment() {
   if (!config.baseUrl || config.baseUrl === 'https://example.com/api') {
     missing.push('FAAS_BASE_URL or SMOKE_TEST_BASE_URL');
   }
-  if (!config.testJwt) {
-    missing.push('TEST_JWT');
+  if (!config.apiKey) {
+    missing.push('TEST_API_KEY');
+  }
+  if (!config.franchiseId) {
+    missing.push('TEST_FRANCHISE_ID');
   }
   if (missing.length > 0) {
     console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
@@ -26,38 +30,38 @@ validateEnvironment();
 export const options = {};
 
 export default function () {
-  group('Healthcheck without JWT', function () {
-    const res = http.get(`${config.baseUrl}/healthcheck`, {
+  group('API without API Key', function () {
+    const res = http.get(`${config.baseUrl}/admin/franchise/${config.franchiseId}`, {
       headers: { 'Content-Type': 'application/json' },
       timeout: '10s',
     });
     const ok = check(res, {
-      'Should return 403 if no JWT': (r) => r.status === 403,
+      'Should return 403 if no API Key': (r) => r.status === 403,
     });
     if (ok) {
-      console.log(`✅ /healthcheck without JWT: recibió 403 como se esperaba.`);
+      console.log(`✅ GET /admin/franchise/{id} without API Key: recibió 403 como se esperaba.`);
     } else {
-      console.log(`❌ /healthcheck without JWT: status ${res.status} (esperado 403)`);
+      console.log(`❌ GET /admin/franchise/{id} without API Key: status ${res.status} (esperado 403)`);
     }
   });
 
   sleep(1);
 
-  group('Healthcheck with JWT', function () {
-    const res = http.get(`${config.baseUrl}/healthcheck`, {
+  group('API with API Key', function () {
+    const res = http.get(`${config.baseUrl}/admin/franchise/${config.franchiseId}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.testJwt}`,
+        'x-api-key': config.apiKey,
       },
       timeout: '10s',
     });
     const ok = check(res, {
-      'Should return 200 with valid JWT': (r) => r.status === 200,
+      'Should return 200 with valid API Key': (r) => r.status === 200,
     });
     if (ok) {
-      console.log(`✅ /healthcheck con JWT: recibió 200 como se esperaba.`);
+      console.log(`✅ GET /admin/franchise/{id} con API Key: recibió 200 como se esperaba.`);
     } else {
-      console.log(`❌ /healthcheck con JWT: status ${res.status} (esperado 200)`);
+      console.log(`❌ GET /admin/franchise/{id} con API Key: status ${res.status} (esperado 200)`);
     }
   });
 
