@@ -6,7 +6,7 @@
  * following the OpenAPI specification.
  * 
  * Security: JWT Bearer token authentication required
- * Base Path: /store/{storeId}/pet
+ * Base Path: /store/{storeId}
  * 
  * Endpoints:
  * - GET /store/{storeId}/pets - List pets in store
