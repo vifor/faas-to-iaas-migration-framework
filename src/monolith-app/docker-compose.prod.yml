@@ -21,9 +21,9 @@ services:
       # Database Configuration
       AWS_REGION: ${AWS_REGION:-sa-east-1}
       TABLE_REGION: ${AWS_REGION:-sa-east-1}
+      # DynamoDBService derives table names from its built-in naming convention
+      # and the environment suffix, so direct table-name overrides are not exposed here.
       ENV: ${ENV:-main}
-      FRANCHISE_TABLE_NAME: ${FRANCHISE_TABLE_NAME:-petstoreFranchise}
-      TENANTS_TABLE_NAME: ${TENANTS_TABLE_NAME:-petstoreTenants}
 
       # Authentication Configuration
       JWT_SECRET: ${JWT_SECRET}
