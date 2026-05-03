@@ -136,9 +136,8 @@ LOG_LEVEL=${LOG_LEVEL:-warn}
 METRICS_ENABLED=false
 ENVEOF
 
-# Log the generated secrets so they can be retrieved via CloudWatch or SSH
-echo "=== GENERATED SECRETS (save these) ==="
-grep -E "JWT_SECRET|ADMIN_API_KEY" .env
+# Do not print generated secrets to bootstrap logs
+echo "Generated application secrets and stored them in .env"
 
 # Start only the application (no monitoring stack)
 docker-compose -f docker-compose.prod.yml up -d petstore-app
