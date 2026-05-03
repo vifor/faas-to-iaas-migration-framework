@@ -23,8 +23,12 @@ scripts/load-testing/*.xml
 !scripts/load-testing/smoke-test.json
 !scripts/load-testing/*-config.json
 
-# Script sensible con credenciales
+# Scripts sensibles con credenciales
 scripts/get-jwt-token.sh
+
+# EC2 deployment artifacts (generated, never commit)
+src/monolith-app/petstore-keypair.pem
+src/monolith-app/user-data.sh
 
 # Logs
 *.log
