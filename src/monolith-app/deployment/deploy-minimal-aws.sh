@@ -122,7 +122,7 @@ cd faas-to-iaas-migration-framework/src/monolith-app
 cat > .env << 'ENVEOF'
 NODE_ENV=production
 AWS_REGION=${AWS_REGION:-sa-east-1}
-TABLE_REGION=${AWS_REGION:-sa-east-1}
+TABLE_REGION=${TABLE_REGION:-${AWS_REGION:-sa-east-1}}
 ENV=${ENV:-main}
 JWT_SECRET=${JWT_SECRET:-$(openssl rand -base64 32)}
 ADMIN_API_KEY=${ADMIN_API_KEY:-$(openssl rand -hex 24)}
