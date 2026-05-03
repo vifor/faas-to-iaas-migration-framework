@@ -254,6 +254,41 @@ export class StoreAdminController {
   }
 
   /**
+   * Query stores by partition key
+   * GET /admin/store/{storeId}
+   */
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Query stores by partition key',
+    description: 'Retrieve all store records matching the given partition key (id) using DynamoDB QueryCommand.',
+    operationId: 'queryStoresById',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Store partition key (id) to query',
+    example: 'store-001',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of store records matching the partition key.',
+    type: [StoreResponseDto],
+  })
+  @ApiBadRequestResponse({ description: 'Bad Request', type: ErrorResponse })
+  @ApiForbiddenResponse({ description: 'Forbidden', type: ErrorResponse })
+  @ApiInternalServerErrorResponse({ description: 'Server Error', type: ErrorResponse })
+  async queryStoresById(@Param('id') id: string): Promise<StoreResponseDto[]> {
+    try {
+      this.logger.debug(`🔍 Querying stores by partition key: ${id}`);
+      const stores = await this.storeService.getStoresByIdQuery(id);
+      this.logger.log(`✅ Found ${stores.length} stores for partition key: ${id}`);
+      return stores;
+    } catch (error) {
+      this.logger.error(`❌ Failed to query stores by id ${id}: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
    * Get stores by composite key (Query operation)
    * GET /admin/store/{id}/{value}
    */

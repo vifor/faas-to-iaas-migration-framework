@@ -69,7 +69,7 @@ class ErrorResponse {
 }
 
 @ApiTags('Store Operations - Pets')
-@Controller('store/:storeId/pet')
+@Controller('store/:storeId')
 @ApiSecurity('BearerAuth')
 @UseGuards(JwtAuthGuard, AuthorizationGuard)
 @RequireResource('MyApplication::Store')
@@ -84,7 +84,7 @@ export class PetStoreController {
    * List pets in store
    * GET /store/{storeId}/pets
    */
-  @Get('s') // Note: 's' to match '/pets' from the route
+  @Get('pets')
   @RequireAction('SearchPets')
   @ApiOperation({
     summary: 'List pets in store',
@@ -165,7 +165,7 @@ export class PetStoreController {
    * Create new pet in store
    * POST /store/{storeId}/pet/create
    */
-  @Post('create')
+  @Post('pet/create')
   @RequireAction('AddPet')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -246,7 +246,7 @@ export class PetStoreController {
    * Get specific pet
    * GET /store/{storeId}/pet/get/{petId}
    */
-  @Get('get/:petId')
+  @Get('pet/get/:petId')
   @ApiOperation({
     summary: 'Get a specific pet',
     description: 'Retrieve detailed information about a specific pet in the store',
@@ -311,7 +311,7 @@ export class PetStoreController {
    * Update pet
    * PUT /store/{storeId}/pet/update/{petId}
    */
-  @Put('update/:petId')
+  @Put('pet/update/:petId')
   @RequireAction('UpdatePet')
   @RequireResource('MyApplication::Pet')
   @ApiOperation({
