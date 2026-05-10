@@ -2,6 +2,9 @@ Analyze the FaaS application code within the 'faas-app' directory. Identify all 
 1. Clear summaries and descriptions for each path and operation.
 2. Definitions for path parameters (e.g., {id}).
 3. Basic security scheme definitions (mentioning ApiKeyAuth and BearerAuth based on path prefixes like /admin).
-4. Placeholder schema definitions for main data objects  even if details cannot be fully inferred.
-5. Use standard HTTP status codes for responses (200, 201, 400, 403, 404, 500).
+4. Authentication dependency analysis: Identify the authentication and authorization services used
+ (e.g., Amazon Cognito, API Gateway authorizers, AWS Verified Permissions). For each service, assess whether it should be migrated or kept 
+ out of scope, applying the same framework criteria used for database migration: only migrate what generates the cost being optimized. Document the recommendation with technical justification
+5. Placeholder schema definitions for main data objects  even if details cannot be fully inferred.
+6. Use standard HTTP status codes for responses (200, 201, 400, 403, 404, 500).
 Output the result as openapi.yaml. Before generating, verify if an OpenAPI file already exists in the target directory.
