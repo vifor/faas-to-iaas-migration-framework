@@ -696,6 +696,14 @@ export class AuthorizationService {
 
   /**
    * Extract user context from JWT payload
+   *
+   * @param jwtPayload - Expected format: Cognito JWT claims with original field names
+   *                     - sub: User ID
+   *                     - email: User email
+   *                     - cognito:groups: Array of user groups
+   *                     - custom:employmentStoreCode: Comma-separated store codes
+   *                     - custom:employmentStoreFranchiseCode: Comma-separated franchise codes
+   *                     - role: User role (optional, derived from groups if missing)
    */
   extractUserContext(jwtPayload: any): UserContext {
     return {

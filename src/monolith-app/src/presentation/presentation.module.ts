@@ -30,9 +30,8 @@
 
 import { Module } from '@nestjs/common';
 import { ApplicationModule } from '../application/application.module';
-import { AuthModule } from '../application/modules/auth.module';
 
-// Admin Controllers (Auth controller is in AuthModule)
+// Admin Controllers
 import { FranchiseAdminController } from './controllers/franchise-admin.controller';
 import { StoreAdminController } from './controllers/store-admin.controller';
 
@@ -41,8 +40,10 @@ import { PetStoreController } from './controllers/pet-store.controller';
 import { OrderStoreController } from './controllers/order-store.controller';
 import { InventoryStoreController } from './controllers/inventory-store.controller';
 
-// Authorization Guard (JWT and API Key guards come from AuthModule)
+// Guards
 import { AuthorizationGuard } from './guards/authorization.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ApiKeyGuard } from './guards/api-key.guard';
 
 // Middleware
 import { RequestLoggingMiddleware, RequestValidationMiddleware } from './middleware';
@@ -50,28 +51,33 @@ import { RequestLoggingMiddleware, RequestValidationMiddleware } from './middlew
 @Module({
   imports: [
     ApplicationModule, // Import application services (includes AuthorizationService)
-    AuthModule, // Import authentication module with guards and services
   ],
   controllers: [
-    // Admin Controllers - API Key Authentication (AuthController is in AuthModule)
+    // Admin Controllers - API Key Authentication
     FranchiseAdminController,
     StoreAdminController,
-    
-    // Store Operation Controllers - JWT Authentication + Authorization
+
+    // Store Operation Controllers - Cognito JWT Authentication + Authorization
     PetStoreController,
     OrderStoreController,
     InventoryStoreController,
   ],
   providers: [
+    // Authentication guards
+    JwtAuthGuard,
+    ApiKeyGuard,
+
     // Authorization guard for business logic protection
     AuthorizationGuard,
-    
+
     // Middleware for request processing
     RequestLoggingMiddleware,
     RequestValidationMiddleware,
   ],
   exports: [
-    // Export authorization guard for use in other modules if needed
+    // Export guards and authorization for use in other modules if needed
+    JwtAuthGuard,
+    ApiKeyGuard,
     AuthorizationGuard,
   ],
 })

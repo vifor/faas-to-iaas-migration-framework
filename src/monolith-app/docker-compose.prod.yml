@@ -25,9 +25,12 @@ services:
       # and the environment suffix, so direct table-name overrides are not exposed here.
       ENV: ${ENV:-main}
 
-      # Authentication Configuration
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      # Authentication Configuration (Cognito)
+      # Note: Region is derived automatically from COGNITO_USER_POOL_ID format (region_xxxxx)
+      COGNITO_USER_POOL_ID: ${COGNITO_USER_POOL_ID}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID}
+
+      # API Key Authentication (for admin endpoints)
       ADMIN_API_KEY: ${ADMIN_API_KEY}
       
       # AWS Configuration

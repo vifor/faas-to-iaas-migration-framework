@@ -6,7 +6,6 @@ import { awsConfig } from './core/config/aws.config';
 import { databaseConfig } from './core/config/database.config';
 import { DatabaseModule } from './database/database.module';
 import { PresentationModule } from './presentation/presentation.module';
-import { AuthModule } from './application/modules/auth.module';
 import { RequestLoggingMiddleware, RequestValidationMiddleware } from './presentation/middleware';
 
 @Module({
@@ -36,10 +35,7 @@ import { RequestLoggingMiddleware, RequestValidationMiddleware } from './present
     
     // Database module for DynamoDB connection
     DatabaseModule,
-    
-    // Authentication module for user management and JWT tokens
-    AuthModule,
-    
+
     // Presentation layer with REST API controllers
     PresentationModule,
   ],

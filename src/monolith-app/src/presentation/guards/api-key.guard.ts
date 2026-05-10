@@ -3,16 +3,15 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AuthService } from '../../application/services/auth.service';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly authService: AuthService,
-  ) {}
+  private readonly logger = new Logger(ApiKeyGuard.name);
+
+  constructor(private readonly configService: ConfigService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -27,10 +26,11 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     try {
-      // First check against configured admin API key
-      const validApiKey = this.configService.get('ADMIN_API_KEY');
-      
-      if (validApiKey && apiKey === validApiKey) {
+      // Check against configured admin API key
+      const adminApiKey = this.configService.get('ADMIN_API_KEY');
+
+      if (adminApiKey && apiKey === adminApiKey) {
+        this.logger.log('✅ Valid admin API key used');
         // Add admin context to request
         request.user = {
           id: 'admin',
@@ -41,31 +41,39 @@ export class ApiKeyGuard implements CanActivate {
         return true;
       }
 
-      // Then validate against dynamic API keys using AuthService
-      const isValid = await this.authService.validateApiKey(apiKey);
-      
-      if (!isValid) {
-        throw new UnauthorizedException({
-          error: 'Unauthorized',
-          message: 'Invalid API key. Please check your x-api-key header value.',
-          statusCode: 401,
-        });
+      // Check against configured API keys list
+      const validApiKeys = this.configService
+        .get<string>('API_KEYS', '')
+        .split(',')
+        .map((key) => key.trim())    // Transform: remove whitespace
+        .filter((key) => key);        // Filter: remove empty strings
+
+      if (validApiKeys.includes(apiKey)) {
+        this.logger.log('✅ Valid API key used');
+        // Add API client context to request
+        request.user = {
+          id: 'api-client',
+          email: 'api@petstore.com',
+          role: 'api_client',
+          isApiKeyAuth: true,
+        };
+        return true;
       }
 
-      // Add API key context to request
-      request.user = {
-        id: 'api-client',
-        email: 'api@petstore.com',
-        role: 'api_client',
-        isApiKeyAuth: true,
-      };
+      // API key not found in any valid list
+      this.logger.warn('❌ Invalid API key attempted');
+      throw new UnauthorizedException({
+        error: 'Unauthorized',
+        message: 'Invalid API key. Please check your x-api-key header value.',
+        statusCode: 401,
+      });
 
-      return true;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
 
+      this.logger.error(`❌ API key validation error: ${error.message}`);
       throw new UnauthorizedException({
         error: 'Unauthorized',
         message: 'API key validation failed. Please try again.',

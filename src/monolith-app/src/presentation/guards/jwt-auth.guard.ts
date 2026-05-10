@@ -3,25 +3,56 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
 
-export interface JwtPayload {
+export interface CognitoJwtPayload {
   sub: string; // User ID
   email: string;
-  storeId?: string;
-  role: 'store_owner' | 'store_employee' | 'customer';
+  email_verified: boolean;
+  'cognito:groups'?: string[]; // User groups/roles
+  'custom:employmentStoreCode'?: string; // Store association
+  'custom:employmentStoreFranchiseCode'?: string; // Franchise association
+  aud: string; // Client ID
+  iss: string; // Cognito issuer
+  token_use: 'access' | 'id';
   iat: number;
   exp: number;
 }
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {}
+  private readonly logger = new Logger(JwtAuthGuard.name);
+  private cognitoVerifier: CognitoJwtVerifier<any, any, boolean>;
+
+  constructor(private readonly configService: ConfigService) {
+    // Validate required Cognito configuration at startup
+    const userPoolId = this.configService.get<string>('COGNITO_USER_POOL_ID');
+    const clientId = this.configService.get<string>('COGNITO_CLIENT_ID');
+
+    const missingEnvVars = [
+      !userPoolId ? 'COGNITO_USER_POOL_ID' : null,
+      !clientId ? 'COGNITO_CLIENT_ID' : null,
+    ].filter((value): value is string => value !== null);
+
+    if (missingEnvVars.length > 0) {
+      throw new Error(
+        `Missing required Cognito configuration: ${missingEnvVars.join(', ')}. ` +
+        'Set these environment variables before starting the application.'
+      );
+    }
+
+    // Initialize Cognito JWT verifier with validated configuration
+    this.cognitoVerifier = CognitoJwtVerifier.create({
+      userPoolId,
+      clientId,
+      tokenUse: 'id', // Verify ID tokens (contains user claims)
+    });
+
+    this.logger.log('🔐 Cognito JWT Guard initialized');
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -46,41 +77,92 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
-        secret: this.configService.get('JWT_SECRET'),
-      });
+      // Verify Cognito JWT token
+      const verifiedToken = await this.cognitoVerifier.verify(token);
+      const payload = verifiedToken as unknown as CognitoJwtPayload;
 
-      // Add user information to request for use in controllers
+      this.logger.debug(`✅ Cognito token verified for user: ${payload.email}`);
+
+      // Extract user context from Cognito token claims
+      const userRole = this.extractUserRole(payload['cognito:groups']);
+      const storeId = payload['custom:employmentStoreCode'];
+      const franchiseCode = payload['custom:employmentStoreFranchiseCode'];
+
+      // Preserve original Cognito JWT payload for AuthorizationService compatibility
+      // Add derived fields for convenience but keep original claims
       request.user = {
-        id: payload.sub,
+        // Original Cognito claims (required by AuthorizationService.extractUserContext)
+        sub: payload.sub,
         email: payload.email,
-        storeId: payload.storeId,
-        role: payload.role,
+        'cognito:groups': payload['cognito:groups'] || [],
+        'custom:employmentStoreCode': payload['custom:employmentStoreCode'] || '',
+        'custom:employmentStoreFranchiseCode': payload['custom:employmentStoreFranchiseCode'] || '',
+
+        // Derived fields for convenience (backward compatibility)
+        id: payload.sub,
+        role: userRole,
+        storeId: storeId,
+        franchiseCode: franchiseCode,
+        groups: payload['cognito:groups'] || [],
+        employmentStoreCodes: storeId ? [storeId] : [],
+        employmentStoreFranchiseCodes: franchiseCode ? [franchiseCode] : [],
+        isApiKeyAuth: false, // Mark as Cognito auth (not API key)
       };
 
       return true;
     } catch (error) {
-      if (error.name === 'TokenExpiredError') {
+      this.logger.warn(`❌ Cognito token validation failed: ${error.message}`);
+
+      if (error.name === 'JwtExpiredError') {
         throw new UnauthorizedException({
           error: 'Unauthorized',
-          message: 'Token has expired. Please obtain a new token.',
+          message: 'Token has expired. Please obtain a new token from Cognito.',
           statusCode: 401,
         });
       }
 
-      if (error.name === 'JsonWebTokenError') {
+      if (error.name === 'JwtParseError' || error.name === 'JwtInvalidSignatureError') {
         throw new UnauthorizedException({
           error: 'Unauthorized',
-          message: 'Invalid token. Please provide a valid JWT token.',
+          message: 'Invalid Cognito token. Please provide a valid JWT token.',
+          statusCode: 401,
+        });
+      }
+
+      if (error.name === 'JwtInvalidClaimError') {
+        throw new UnauthorizedException({
+          error: 'Unauthorized',
+          message: 'Token validation failed: invalid claims. Please check token configuration.',
           statusCode: 401,
         });
       }
 
       throw new UnauthorizedException({
         error: 'Unauthorized',
-        message: 'Token validation failed. Please try again.',
+        message: 'Cognito token validation failed. Please try again.',
         statusCode: 401,
       });
     }
+  }
+
+  /**
+   * Extract user role from Cognito groups
+   * Maps Cognito groups to application roles
+   */
+  private extractUserRole(groups?: string[]): 'store_owner' | 'store_employee' | 'customer' {
+    if (!groups || groups.length === 0) {
+      return 'customer';
+    }
+
+    // Priority mapping: store_owner > store_employee > customer
+    if (groups.includes('StoreOwnerRole')) {
+      return 'store_owner';
+    }
+
+    if (groups.includes('StoreEmployeeRole')) {
+      return 'store_employee';
+    }
+
+    return 'customer';
   }
 }
