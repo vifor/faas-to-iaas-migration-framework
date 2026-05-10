@@ -28,10 +28,26 @@ export class JwtAuthGuard implements CanActivate {
   private cognitoVerifier: CognitoJwtVerifier<any, any, boolean>;
 
   constructor(private readonly configService: ConfigService) {
-    // Initialize Cognito JWT verifier
+    // Validate required Cognito configuration at startup
+    const userPoolId = this.configService.get<string>('COGNITO_USER_POOL_ID');
+    const clientId = this.configService.get<string>('COGNITO_CLIENT_ID');
+
+    const missingEnvVars = [
+      !userPoolId ? 'COGNITO_USER_POOL_ID' : null,
+      !clientId ? 'COGNITO_CLIENT_ID' : null,
+    ].filter((value): value is string => value !== null);
+
+    if (missingEnvVars.length > 0) {
+      throw new Error(
+        `Missing required Cognito configuration: ${missingEnvVars.join(', ')}. ` +
+        'Set these environment variables before starting the application.'
+      );
+    }
+
+    // Initialize Cognito JWT verifier with validated configuration
     this.cognitoVerifier = CognitoJwtVerifier.create({
-      userPoolId: this.configService.get<string>('COGNITO_USER_POOL_ID'),
-      clientId: this.configService.get<string>('COGNITO_CLIENT_ID'),
+      userPoolId,
+      clientId,
       tokenUse: 'id', // Verify ID tokens (contains user claims)
     });
 
