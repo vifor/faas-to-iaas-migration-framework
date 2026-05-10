@@ -72,13 +72,21 @@ export class JwtAuthGuard implements CanActivate {
       const storeId = payload['custom:employmentStoreCode'];
       const franchiseCode = payload['custom:employmentStoreFranchiseCode'];
 
-      // Add user information to request for use in controllers and authorization
+      // Preserve original Cognito JWT payload for AuthorizationService compatibility
+      // Add derived fields for convenience but keep original claims
       request.user = {
-        id: payload.sub,
+        // Original Cognito claims (required by AuthorizationService.extractUserContext)
+        sub: payload.sub,
         email: payload.email,
+        'cognito:groups': payload['cognito:groups'] || [],
+        'custom:employmentStoreCode': payload['custom:employmentStoreCode'] || '',
+        'custom:employmentStoreFranchiseCode': payload['custom:employmentStoreFranchiseCode'] || '',
+
+        // Derived fields for convenience (backward compatibility)
+        id: payload.sub,
+        role: userRole,
         storeId: storeId,
         franchiseCode: franchiseCode,
-        role: userRole,
         groups: payload['cognito:groups'] || [],
         employmentStoreCodes: storeId ? [storeId] : [],
         employmentStoreFranchiseCodes: franchiseCode ? [franchiseCode] : [],
