@@ -59,4 +59,5 @@ temp/
 
 # Deployment and package files
 *.zip
-**/*.zip
+**/*.zipdocs/log/phase1-v2.report
+docs/output/openapi-v2.yaml
