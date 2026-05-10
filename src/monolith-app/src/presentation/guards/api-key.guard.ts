@@ -42,7 +42,11 @@ export class ApiKeyGuard implements CanActivate {
       }
 
       // Check against configured API keys list
-      const validApiKeys = this.configService.get<string>('API_KEYS', '').split(',').filter(key => key.trim());
+      const validApiKeys = this.configService
+        .get<string>('API_KEYS', '')
+        .split(',')
+        .map((key) => key.trim())    // Transform: remove whitespace
+        .filter((key) => key);        // Filter: remove empty strings
 
       if (validApiKeys.includes(apiKey)) {
         this.logger.log('✅ Valid API key used');
