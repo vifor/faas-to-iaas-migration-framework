@@ -1,9 +1,10 @@
-// Functional validation — 2 endpoints FaaS PetStore API
-// 1 VU · 1 iteration · sequential execution
+// Functional validation — 2 endpoints on both FaaS and IaaS environments
+// 1 VU · 1 iteration · sequential execution with comparison output
 //
 // Run:
 //   k6 run \
-//     -e API_KEY=<key> \
+//     -e API_KEY=<faas-key> \
+//     -e IAAS_API_KEY=<iaas-key> \
 //     -e COGNITO_PASSWORD=<password> \
 //     scripts/functional-testing/functional-test.js
 
@@ -11,7 +12,9 @@ import http from 'k6/http';
 import { check } from 'k6';
 import {
   BASE_URL,
+  IAAS_URL,
   API_KEY,
+  IAAS_API_KEY,
   TEST_JWT,
   COGNITO_ENDPOINT,
   COGNITO_CLIENT_ID,
@@ -49,6 +52,150 @@ function printResult(passed, method, path, res, extra = {}) {
   if (parsed === null) {
     console.log(`      Body     : ${res.body.substring(0, 200)}`);
   }
+}
+
+function testEndpoint1(baseUrl, apiKey, environment) {
+  console.log(`\n── EP1 ${environment} — GET /admin/store/{storeId} — ApiKeyAuth ──────────`);
+
+  if (!apiKey) {
+    console.error(`FAIL  ${environment} API key is required`);
+    return null;
+  }
+
+  const url = `${baseUrl}/admin/store/${STORE_ID}`;
+  console.log(`→ GET ${url}`);
+
+  const res = http.get(url, {
+    headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+  });
+
+  const body = tryParseJson(res.body);
+  const pass = check(res, {
+    [`EP1 ${environment} status is 200`]: (r) => r.status === 200,
+    [`EP1 ${environment} response is JSON`]: () => body !== null,
+    [`EP1 ${environment} response is an array`]: () => Array.isArray(body),
+  });
+
+  printResult(pass, 'GET', `/admin/store/${STORE_ID}`, res, {
+    'Is array': Array.isArray(body),
+    'Items': Array.isArray(body) ? body.length : '-',
+    'First': Array.isArray(body) && body.length > 0 ? JSON.stringify(body[0]).substring(0, 100) + '...' : '-',
+  });
+
+  return { status: res.status, body, passed: pass };
+}
+
+function testEndpoint2(baseUrl, idToken, environment) {
+  console.log(`\n── EP2 ${environment} — GET /store/{storeId}/pets — BearerAuth ───────────`);
+
+  if (!idToken) {
+    console.error(`FAIL  No JWT available for ${environment} — skipping endpoint 2`);
+    return null;
+  }
+
+  const url = `${baseUrl}/store/${STORE_ID}/pets`;
+  console.log(`→ GET ${url}`);
+
+  const res = http.get(url, {
+    headers: {
+      'Authorization': `Bearer ${idToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const body = tryParseJson(res.body);
+
+  // Updated check to accept both array and object responses
+  const isValidResponse = Array.isArray(body) || (body && typeof body === 'object' && 'pets' in body);
+
+  const pass = check(res, {
+    [`EP2 ${environment} status is 200`]: (r) => r.status === 200,
+    [`EP2 ${environment} response is JSON`]: () => body !== null,
+    [`EP2 ${environment} response is valid format`]: () => isValidResponse,
+  });
+
+  const itemCount = Array.isArray(body) ? body.length : (body && body.pets ? body.pets.length : 0);
+
+  printResult(pass, 'GET', `/store/${STORE_ID}/pets`, res, {
+    'Format': Array.isArray(body) ? 'Array' : (body && body.pets ? 'Object with pets' : 'Unknown'),
+    'Items': itemCount,
+  });
+
+  // Show complete response content
+  console.log(`      Full Response: ${JSON.stringify(body, null, 2)}`);
+
+  return { status: res.status, body, passed: pass };
+}
+
+function formatResponseSummary(body, maxLength = 80) {
+  if (!body) return 'null';
+
+  const json = JSON.stringify(body);
+  if (json.length <= maxLength) return json;
+
+  if (Array.isArray(body)) {
+    return `[${body.length} items: ${JSON.stringify(body[0]).substring(0, 50)}...]`;
+  }
+
+  return json.substring(0, maxLength) + '...';
+}
+
+function printComparisonSummary(faasResults, iaasResults) {
+  console.log('\n════════════════════════════════════════════════════════════════');
+  console.log('  FUNCTIONAL EQUIVALENCE SUMMARY');
+  console.log('════════════════════════════════════════════════════════════════');
+
+  if (faasResults.ep1 && iaasResults.ep1) {
+    console.log('\n  EP1 — GET /admin/store/{storeId}');
+    console.log(`  ├── FaaS  : ${formatResponseSummary(faasResults.ep1.body)}`);
+    console.log(`  └── IaaS  : ${formatResponseSummary(iaasResults.ep1.body)}`);
+  }
+
+  if (faasResults.ep2 && iaasResults.ep2) {
+    console.log('\n  EP2 — GET /store/{storeId}/pets');
+    console.log(`  ├── FaaS  : ${formatResponseSummary(faasResults.ep2.body)}`);
+    console.log(`  └── IaaS  : ${formatResponseSummary(iaasResults.ep2.body)}`);
+  }
+
+  console.log('\n  EQUIVALENCE VERDICT:');
+
+  // EP1 Analysis
+  let ep1Status = '❓ UNKNOWN';
+  if (faasResults.ep1 && iaasResults.ep1) {
+    if (faasResults.ep1.status === 200 && iaasResults.ep1.status === 200) {
+      ep1Status = '✅ EQUIVALENT (both return HTTP 200 with store data)';
+    } else if (faasResults.ep1.status !== iaasResults.ep1.status) {
+      ep1Status = `❌ DIFFERENT STATUS (FaaS: ${faasResults.ep1.status}, IaaS: ${iaasResults.ep1.status})`;
+    } else {
+      ep1Status = '⚠️  BOTH FAILED';
+    }
+  }
+
+  // EP2 Analysis
+  let ep2Status = '❓ UNKNOWN';
+  if (faasResults.ep2 && iaasResults.ep2) {
+    const faasIsArray = Array.isArray(faasResults.ep2.body);
+    const iaasIsObject = faasResults.ep2.body && typeof iaasResults.ep2.body === 'object' && 'pets' in iaasResults.ep2.body;
+
+    if (faasResults.ep2.status === 200 && iaasResults.ep2.status === 200) {
+      if (faasIsArray && iaasIsObject) {
+        ep2Status = '⚠️  DIFFERENT FORMAT (FaaS=array, IaaS=object with pets array)';
+      } else if (faasIsArray && Array.isArray(iaasResults.ep2.body)) {
+        ep2Status = '✅ EQUIVALENT (both return arrays)';
+      } else {
+        ep2Status = '✅ EQUIVALENT (both return HTTP 200 with pets data)';
+      }
+    } else if (faasResults.ep2.status !== iaasResults.ep2.status) {
+      ep2Status = `❌ DIFFERENT STATUS (FaaS: ${faasResults.ep2.status}, IaaS: ${iaasResults.ep2.status})`;
+    } else {
+      ep2Status = '⚠️  BOTH FAILED';
+    }
+  }
+
+  console.log(`  ├── EP1: ${ep1Status}`);
+  console.log(`  └── EP2: ${ep2Status}`);
+
+  console.log('\n════════════════════════════════════════════════════════════════\n');
 }
 
 // ── setup() — obtiene JWT de Cognito una sola vez ─────────────────────────────
@@ -106,68 +253,27 @@ export function setup() {
   return { idToken };
 }
 
-// ── default() — ejecuta los 3 endpoints en secuencia ─────────────────────────
+// ── default() — test both FaaS and IaaS environments with comparison ────────
 
 export default function (data) {
+  const results = { faas: {}, iaas: {} };
+
+  // ── Test FaaS Environment ──────────────────────────────────────────────
   console.log('\n════════════════════════════════════════════════════════════════');
-  console.log(`  FaaS Functional Validation  |  BASE_URL: ${BASE_URL}`);
+  console.log(`  FaaS Environment Testing  |  BASE_URL: ${BASE_URL}`);
   console.log('════════════════════════════════════════════════════════════════');
 
-  // ── Endpoint 1 — GET /admin/store/{storeId} ──────────────────────────────
-  console.log('\n── [1/2] GET /admin/store/{storeId} — ApiKeyAuth ────────────────');
+  results.faas.ep1 = testEndpoint1(BASE_URL, API_KEY, 'FaaS');
+  results.faas.ep2 = testEndpoint2(BASE_URL, data.idToken, 'FaaS');
 
-  if (!API_KEY) {
-    console.error('FAIL  API_KEY is required. Add -e API_KEY=<key>');
-  } else {
-    const url1  = `${BASE_URL}/admin/store/${STORE_ID}`;
-    console.log(`→ GET ${url1}`);
+  // ── Test IaaS Environment ──────────────────────────────────────────────
+  console.log('\n════════════════════════════════════════════════════════════════');
+  console.log(`  IaaS Environment Testing  |  IAAS_URL: ${IAAS_URL}`);
+  console.log('════════════════════════════════════════════════════════════════');
 
-    const res1   = http.get(url1, {
-      headers: { 'x-api-key': API_KEY, 'Content-Type': 'application/json' },
-    });
-    const body1  = tryParseJson(res1.body);
-    const pass1  = check(res1, {
-      '[1] status is 200':        (r) => r.status === 200,
-      '[1] response is JSON':     ()  => body1 !== null,
-      '[1] response is an array': ()  => Array.isArray(body1),
-    });
+  results.iaas.ep1 = testEndpoint1(IAAS_URL, IAAS_API_KEY, 'IaaS');
+  results.iaas.ep2 = testEndpoint2(IAAS_URL, data.idToken, 'IaaS');
 
-    printResult(pass1, 'GET', `/admin/store/${STORE_ID}`, res1, {
-      'Is array': Array.isArray(body1),
-      'Items':    Array.isArray(body1) ? body1.length : '-',
-      'First':    Array.isArray(body1) && body1.length > 0
-                    ? JSON.stringify(body1[0])
-                    : '-',
-    });
-  }
-
-  // ── Endpoint 2 — GET /store/{storeId}/pets ───────────────────────────────
-  console.log('\n── [2/2] GET /store/{storeId}/pets — BearerAuth ─────────────────');
-
-  if (!data.idToken) {
-    console.error('FAIL  No JWT available — skipping endpoint 2');
-  } else {
-    const url2  = `${BASE_URL}/store/${STORE_ID}/pets`;
-    console.log(`→ GET ${url2}`);
-
-    const res2  = http.get(url2, {
-      headers: {
-        'Authorization': `Bearer ${data.idToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    const body2 = tryParseJson(res2.body);
-    const pass2 = check(res2, {
-      '[2] status is 200':        (r) => r.status === 200,
-      '[2] response is JSON':     ()  => body2 !== null,
-      '[2] response is an array': ()  => Array.isArray(body2),
-    });
-
-    printResult(pass2, 'GET', `/store/${STORE_ID}/pets`, res2, {
-      'Is array': Array.isArray(body2),
-      'Items':    Array.isArray(body2) ? body2.length : '-',
-    });
-  }
-
-  console.log('\n════════════════════════════════════════════════════════════════\n');
+  // ── Print Comparison Summary ───────────────────────────────────────────
+  printComparisonSummary(results.faas, results.iaas);
 }

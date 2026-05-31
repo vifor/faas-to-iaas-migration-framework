@@ -4,17 +4,34 @@ import { check } from 'k6';
 // --------------------------------------------------------------------------------
 // CONFIGURACIÓN (Variables Globales)
 // --------------------------------------------------------------------------------
+// Required environment variables:
+//   -e BASE_URL=https://your-api-gateway-url
+//   -e COGNITO_CLIENT_ID=your-cognito-client-id
+//   -e API_KEY=your-faas-api-key
+//   -e COGNITO_USERNAME=your-test-username
+//   -e COGNITO_PASSWORD=your-test-password
+// --------------------------------------------------------------------------------
 const config = {
-  baseUrl: 'https://5brhnloiod.execute-api.sa-east-1.amazonaws.com/main',
-  clientId: '34uf0bee83j3ciq8sd7durq31k',
-  // 🔴 ¡IMPORTANTE! Reemplaza esto con la API Key que copiaste de la consola de AWS
-  apiKey: '0e7da1c5-960f-4c69-9adf-fe176e1e35d4', 
-  authUrl: 'https://cognito-idp.sa-east-1.amazonaws.com/',
+  baseUrl: __ENV.BASE_URL || 'https://5brhnloiod.execute-api.sa-east-1.amazonaws.com/main',
+  clientId: __ENV.COGNITO_CLIENT_ID || '',
+  apiKey: __ENV.API_KEY || '',
+  authUrl: __ENV.COGNITO_AUTH_URL || 'https://cognito-idp.sa-east-1.amazonaws.com/',
   user: {
-      username: 'vicky',
-      password: 'tesis1512_'
+      username: __ENV.COGNITO_USERNAME || '',
+      password: __ENV.COGNITO_PASSWORD || ''
   }
 };
+
+// Validate required environment variables
+if (!config.apiKey) {
+  throw new Error('API_KEY environment variable is required. Use: -e API_KEY=your-faas-api-key');
+}
+if (!config.clientId) {
+  throw new Error('COGNITO_CLIENT_ID environment variable is required. Use: -e COGNITO_CLIENT_ID=your-client-id');
+}
+if (!config.user.password) {
+  throw new Error('COGNITO_PASSWORD environment variable is required. Use: -e COGNITO_PASSWORD=your-password');
+}
 
 // --------------------------------------------------------------------------------
 // FUNCIÓN PRINCIPAL (VU Code)

@@ -2,7 +2,7 @@
 import http from 'k6/http';
 
 export default function () {
-  const clientId = '34uf0bee83j3ciq8sd7durq31k';
+  const clientId = '[COGNITO_CLIENT_ID_REDACTED]';
   
   console.log('🔍 Diagnóstico JWT Structure...');
   
@@ -12,7 +12,7 @@ export default function () {
     ClientId: clientId,
     AuthParameters: {
       USERNAME: 'vicky',
-      PASSWORD: 'tesis1512_'
+      PASSWORD: '[PASSWORD_REDACTED]'
     }
   });
   

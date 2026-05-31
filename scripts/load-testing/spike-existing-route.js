@@ -19,10 +19,10 @@ export const options = {
 
 const config = {
   baseUrl: 'https://5brhnloiod.execute-api.sa-east-1.amazonaws.com/main',
-  clientId: '34uf0bee83j3ciq8sd7durq31k',
+  clientId: '[COGNITO_CLIENT_ID_REDACTED]',
   apiKey: '0e7da1c5-960f-4c69-9adf-fe176e1e35d4', // 🔴 API KEY
   authUrl: 'https://cognito-idp.sa-east-1.amazonaws.com/',
-  user: { username: 'vicky', password: 'tesis1512_' }
+  user: { username: 'vicky', password: '[PASSWORD_REDACTED]' }
 };
 
 // ... (El bloque setup() y default() es IDÉNTICO al del load-test-api.js) ...

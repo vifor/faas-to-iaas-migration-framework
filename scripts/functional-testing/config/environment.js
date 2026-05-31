@@ -25,11 +25,14 @@
 export const BASE_URL =
   __ENV.BASE_URL || 'https://5brhnloiod.execute-api.sa-east-1.amazonaws.com/main';
 
+export const IAAS_URL = __ENV.IAAS_URL || 'http://localhost:3000/api/v1';
+
 export const API_KEY  = __ENV.API_KEY  || '';
+export const IAAS_API_KEY = __ENV.IAAS_API_KEY || '';
 export const TEST_JWT = __ENV.TEST_JWT || '';
 
 export const COGNITO_REGION   = __ENV.COGNITO_REGION   || 'sa-east-1';
-export const COGNITO_CLIENT_ID = __ENV.COGNITO_CLIENT_ID || '34uf0bee83j3ciq8sd7durq31k';
+export const COGNITO_CLIENT_ID = __ENV.COGNITO_CLIENT_ID || ''; // Default removed for security
 export const COGNITO_USERNAME  = __ENV.COGNITO_USERNAME  || 'vicky';
 export const COGNITO_PASSWORD  = __ENV.COGNITO_PASSWORD  || '';
 

@@ -133,14 +133,14 @@ import { check } from "k6";
 export default function () {
   // Intentar obtener token JWT desde Cognito
   const cognitoUrl = "https://cognito-idp.sa-east-1.amazonaws.com/";
-  const clientId = "34uf0bee83j3ciq8sd7durq31k";
+  const clientId = "[COGNITO_CLIENT_ID_REDACTED]";
 
   const authData = {
     AuthFlow: "USER_PASSWORD_AUTH",
     ClientId: clientId,
     AuthParameters: {
       USERNAME: "victoria.pocladova@gmail.com",
-      PASSWORD: "tesis1512_",
+      PASSWORD: "[PASSWORD_REDACTED]",
     },
   };
 

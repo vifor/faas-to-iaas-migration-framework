@@ -106,7 +106,7 @@ export default function () {
   console.log('testUsers: [');
   console.log('  {');
   console.log('    username: "victoria.pocladova@gmail.com",');
-  console.log('    password: "tesis1512_",');
+  console.log('    password: "[PASSWORD_REDACTED]",');
   console.log('    storeId: "store-001"  // <-- Usar este storeId');
   console.log('  }');
   console.log(']');
