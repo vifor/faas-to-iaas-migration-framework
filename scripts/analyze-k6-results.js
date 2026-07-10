@@ -9,12 +9,24 @@ function analyzeK6Results(filename) {
   let totalRequests = 0;
   let failedRequests = 0;
   let durations = [];
+  let testRunDurationMs = null;
+  let firstPointTime = null;
+  let lastPointTime = null;
 
   lines.forEach(line => {
     try {
       const record = JSON.parse(line);
 
+      if (record.state && typeof record.state.testRunDurationMs === 'number') {
+        testRunDurationMs = record.state.testRunDurationMs;
+      }
+
       if (record.type === 'Point') {
+        const pointTime = Date.parse(record.data.time);
+        if (!Number.isNaN(pointTime)) {
+          if (firstPointTime === null || pointTime < firstPointTime) firstPointTime = pointTime;
+          if (lastPointTime === null || pointTime > lastPointTime) lastPointTime = pointTime;
+        }
         if (record.metric === 'http_reqs') {
           totalRequests++;
         }
@@ -40,8 +52,18 @@ function analyzeK6Results(filename) {
   const p95 = percentile(durations, 95);
   const p99 = percentile(durations, 99);
 
-  // Estimate test duration (5 minutes = 300 seconds)
-  const testDuration = 300;
+  // Actual test duration from the k6 export: state.testRunDurationMs when present
+  // (summary export), otherwise the span of Point timestamps (NDJSON stream export).
+  if (testRunDurationMs === null && firstPointTime !== null && lastPointTime !== null) {
+    testRunDurationMs = lastPointTime - firstPointTime;
+  }
+  if (testRunDurationMs === null || testRunDurationMs <= 0) {
+    console.error(`Error: could not determine actual test duration from ${filename} ` +
+      '(no state.testRunDurationMs and no Point timestamps). Refusing to use a hardcoded value.');
+    process.exit(1);
+  }
+  const testDuration = testRunDurationMs / 1000;
+  console.log(`Actual test duration: ${testDuration.toFixed(1)}s`);
   const rps = totalRequests / testDuration;
 
   console.log('='.repeat(60));
