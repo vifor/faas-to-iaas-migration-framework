@@ -23,18 +23,20 @@
 
 | Metric | Value |
 |--------|-------|
-| **Total Requests** | 471 |
+| **Total Requests** | 539 |
 | **Failed Requests** | 0 |
-| **RPS (average)** | 1.57 |
+| **RPS (average)** | 2.24 |
 | **Error Rate** | 0.00% |
+
+**Actual test duration:** 240.9s — figures recomputed from the complete raw k6 export (faas-3vu-results.json); earlier figures were derived from a partial snapshot and a hardcoded 300s duration.
 
 ### Response Time Metrics
 | Percentile | Value |
 |------------|-------|
-| **p50 (median)** | 183.63ms |
-| **p90** | 269.05ms |
+| **p50 (median)** | 180.88ms |
+| **p90** | 270.32ms |
 | **p95** | 322.92ms |
-| **p99** | 664.42ms |
+| **p99** | 637.17ms |
 
 ## Key Findings
 1. ✅ **No throttling detected** - No HTTP 429 responses observed

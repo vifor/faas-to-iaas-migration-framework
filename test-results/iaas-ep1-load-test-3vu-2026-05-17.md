@@ -30,8 +30,9 @@ Time: 0.139s
 **Configuration:** Exactly matching planned FaaS test setup
 
 **Key Metrics:**
+- **Actual test duration:** 240.8s (RPS recomputed from the raw k6 export)
 - **Total Requests:** 618
-- **RPS (average):** 2.06
+- **RPS (average):** 2.57
 - **Error Rate:** 0.00%
 - **Response Times:**
   - p50: 42.68ms
@@ -56,9 +57,9 @@ Time: 0.139s
 ### Comparison with Higher VU Tests
 | Load Level | VUs | Requests | RPS | p95 Latency | Error Rate |
 |------------|-----|----------|-----|-------------|------------|
-| **Low (FaaS comparison)** | 3 | 618 | 2.06 | 64.01ms | 0.00% |
-| **Medium** | 10 | 2,327 | 7.76 | 63.84ms | 0.00% |
-| **High** | 20 | 4,613 | 15.38 | 70.86ms | 0.00% |
+| **Low (FaaS comparison)** | 3 | 618 | 2.57 | 64.01ms | 0.00% |
+| **Medium** | 10 | 2,327 | 7.74 | 63.84ms | 0.00% |
+| **High** | 20 | 4,613 | 15.35 | 70.86ms | 0.00% |
 
 **Observation:** Latency remains remarkably consistent across all load levels, demonstrating excellent scalability characteristics.
 
@@ -67,7 +68,7 @@ Time: 0.139s
 | Métrica | IaaS (3 VUs) | FaaS (3 VUs) |
 |---------|--------------|--------------|
 | **Total requests** | 618 | 0 (throttled) |
-| **RPS promedio** | 2.06 | N/A |
+| **RPS promedio** | 2.57 | N/A |
 | **Latencia p50** | 42.68ms | N/A |
 | **Latencia p90** | 57.42ms | N/A |
 | **Latencia p95** | 64.01ms | N/A |

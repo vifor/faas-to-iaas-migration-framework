@@ -28,8 +28,9 @@ Time: 0.139s
 **Duration:** ~5 minutes  
 
 **Key Metrics:**
+- **Actual test duration:** 300.5s (RPS recomputed from the raw k6 export)
 - **Total Requests:** 2,327
-- **RPS (average):** 7.76
+- **RPS (average):** 7.74
 - **Error Rate:** 0.00%
 - **Response Times:**
   - p50: 43.01ms
@@ -43,8 +44,9 @@ Time: 0.139s
 **Duration:** ~5 minutes  
 
 **Key Metrics:**
+- **Actual test duration:** 300.6s (RPS recomputed from the raw k6 export)
 - **Total Requests:** 4,613
-- **RPS (average):** 15.38
+- **RPS (average):** 15.35
 - **Error Rate:** 0.00%
 - **Response Times:**
   - p50: 43.66ms
@@ -76,7 +78,7 @@ Both test scenarios exceeded SLA requirements:
 | Métrica | 10 VUs | 20 VUs |
 |---------|--------|--------|
 | **Total requests** | 2,327 | 4,613 |
-| **RPS promedio** | 7.76 | 15.38 |
+| **RPS promedio** | 7.74 | 15.35 |
 | **Latencia p50** | 43.01ms | 43.66ms |
 | **Latencia p90** | 54.42ms | 60.99ms |
 | **Latencia p95** | 63.84ms | 70.86ms |
