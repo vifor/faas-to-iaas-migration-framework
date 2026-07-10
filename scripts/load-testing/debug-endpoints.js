@@ -3,7 +3,7 @@ import http from 'k6/http';
 
 export default function () {
   const baseUrl = 'https://5brhnloiod.execute-api.sa-east-1.amazonaws.com/main';
-  const clientId = '34uf0bee83j3ciq8sd7durq31k';
+  const clientId = '[COGNITO_CLIENT_ID_REDACTED]';
   
   console.log('🔍 Debuggeando Request y Response...');
   
@@ -13,7 +13,7 @@ export default function () {
     ClientId: clientId,
     AuthParameters: {
       USERNAME: 'vicky',
-      PASSWORD: 'tesis1512_'
+      PASSWORD: '[PASSWORD_REDACTED]'
     }
   });
   

@@ -39,7 +39,7 @@ echo ""
 step "Leyendo configuración..."
 
 COGNITO_USERNAME="${COGNITO_USERNAME:-vicky}"
-CLIENT_ID="${CLIENT_ID:-34uf0bee83j3ciq8sd7durq31k}"
+CLIENT_ID="${CLIENT_ID:-[COGNITO_CLIENT_ID_REDACTED]}"
 COGNITO_REGION="${COGNITO_REGION:-sa-east-1}"
 FAAS_BASE_URL="${FAAS_BASE_URL:-https://5brhnloiod.execute-api.sa-east-1.amazonaws.com/main}"
 COGNITO_ENDPOINT="https://cognito-idp.${COGNITO_REGION}.amazonaws.com/"
