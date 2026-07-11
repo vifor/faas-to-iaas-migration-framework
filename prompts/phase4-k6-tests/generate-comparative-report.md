@@ -22,6 +22,8 @@ You are a performance engineer generating the comparative results report for a F
 
 5. **Only compare like with like.** Cross-environment comparison tables may only pair runs with the same VU level and load profile. If an environment lacks a run at some VU level (e.g., aborted due to throttling), say so explicitly instead of filling the cell.
 
+6. **Formatting must be sober and publication-ready:** plain text or standard markdown tables only; no emoji or decorative symbols. Use "Cumple" / "No cumple" for SLA verdicts and "Equivalente" / "Divergente" for equivalence assessments.
+
 ## Inputs
 
 - Raw k6 exports at the repository root (e.g., `faas-3vu-results.json`, `iaas-3vu-results.json`, `iaas-10vu-results.json`, `iaas-20vu-results.json`)
