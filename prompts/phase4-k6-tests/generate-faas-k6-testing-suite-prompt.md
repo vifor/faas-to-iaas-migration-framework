@@ -181,6 +181,11 @@ scripts/load-testing/
 - [ ] Quality assurance validation results
 - [ ] Business value and operational benefits summary
 
+> **Note:** The comparative results report is a separate, post-execution step.
+> Once the tests have been run and the raw k6 exports collected, generate it
+> with `generate-comparative-report.md` (same directory), which requires all
+> figures to be derived from the raw exports via `scripts/analyze-k6-results.js`.
+
 ### Application Analysis Requirements
 
 Before implementation, analyze the FaaS application for:
