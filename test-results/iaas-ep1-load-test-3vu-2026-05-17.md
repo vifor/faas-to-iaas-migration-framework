@@ -124,3 +124,6 @@ The IaaS implementation provides:
 **Status:** FaaS comparison baseline established ✅
 
 **Next:** Resolve FaaS throttling to enable meaningful architecture comparison
+
+---
+> **Update (2026-07-12):** The FaaS figures and statements in this report ("0 (throttled)", "FaaS currently cannot handle basic load testing", "Resolve FaaS throttling") reflect the state as of 2026-05-17 and are superseded. The FaaS 3 VU test completed successfully on 2026-05-19 (539 requests, SLA pass — see faas-ep1-load-test-3vu-2026-05-19.md), and the 10/20 VU tests completed on 2026-07-10 after raising the AWS account concurrency limit and the API Gateway usage plan quota (see faas-ep1-load-test-10vu-2026-07-10.md and faas-ep1-load-test-20vu-2026-07-10.md). The IaaS figures in this report remain valid.

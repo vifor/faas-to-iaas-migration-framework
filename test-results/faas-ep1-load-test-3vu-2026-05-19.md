@@ -53,6 +53,8 @@
 - **3 VUs:** ✅ PASS - No throttling, excellent performance
 - **10 VUs:** ❌ FAIL - Throttling observed at ~2 minutes
 
+> **Update (2026-07-12):** The 10 VU failure above was caused by the API Gateway usage plan daily quota (1,000 requests/day) and the default AWS account Lambda concurrency limit — not by the application. After raising both limits, the 10 and 20 VU tests completed on 2026-07-10 with zero throttling (see faas-ep1-load-test-10vu-2026-07-10.md and faas-ep1-load-test-20vu-2026-07-10.md).
+
 ## Conclusion
 The FaaS endpoint successfully handles 3 VU load without any performance degradation or throttling. Response times remain consistently low (p95 = 322ms), demonstrating excellent cold start optimization and API Gateway efficiency at this load level.
 
